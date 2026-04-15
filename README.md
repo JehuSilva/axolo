@@ -7,6 +7,9 @@ Automatic organizer for photos, videos, audio and documents with configurable de
 - Extrae metadatos (EXIF, ID3, PDF, Office) para ordenar archivos multimedia y documentos.
 - Clasifica automáticamente en categorías (`Fotos y Videos`, `Musica`, `Documentos`, `Otros`).
 - Dentro de cada categoría organiza por año/mes (personalizable mediante plantillas).
+- Agrupa fotografías y videos en eventos sugeridos mediante clustering temporal configurable.
+- Identifica fotografías potencialmente duplicadas usando hashing perceptual.
+- Visualiza la cantidad de capturas por periodo (hora, día, semana, mes o año) sin mover archivos.
 - Modo `dry-run` para validar resultados sin mover archivos.
 - Soporte para HEIC mediante `pillow-heif` y compatibilidad ampliada con videos (ffprobe y tags DJI).
 - Archivos sin fecha confiable se ubican automáticamente en `unknown_date/` dentro de su categoría.
@@ -24,11 +27,15 @@ Automatic organizer for photos, videos, audio and documents with configurable de
 python -m venv .venv
 source .venv/bin/activate  # En Windows: .venv\Scripts\activate
 pip install -e .
-media-organizer --source /ruta/origen --destination /ruta/destino --dry-run
+media-organizer run --source /ruta/origen --destination /ruta/destino --dry-run
 ```
 
 ### CLI
 
+- `run` organiza físicamente los archivos según la plantilla configurada.
+- `cluster` genera agrupaciones sugiriendo álbumes sin mover archivos.
+- `similars` detecta fotos parecidas o duplicadas mediante hashing perceptual.
+- `timeline` resume cuántas capturas hay por periodo y permite exportar la serie temporal.
 - `--profile` permite elegir un template predefinido (`default`, `year_month_day`, `year_month_name`, `camera`).
 - `--template` acepta un formato personalizado que se interpreta dentro de la categoría (p. ej. `"{year}/{month_name}"`).
 - `--extra clave=valor` agrega variables adicionales para usar en templates (requiere nombrarlas en el template).
@@ -40,6 +47,7 @@ Ejemplo:
 
 ```bash
 media-organizer \
+  run \
   --source ~/Media \
   --destination /mnt/organizado \
   --profile year_month_name \
@@ -56,6 +64,55 @@ El ejemplo anterior generará rutas como:
 Puedes añadir perfiles personalizados en un YAML (ver `profiles.sample.yaml`) y cargarlos con `--profiles-path`.
 
 Los archivos que no tengan una fecha de captura confiable se agrupan en `unknown_date/` dentro de su categoría para que puedas revisarlos manualmente.
+
+### Agrupamiento de álbumes
+
+Usa el comando `cluster` para detectar eventos antes de etiquetar o mover archivos. No se modifica ningún archivo; se trabaja únicamente con los metadatos.
+
+```bash
+media-organizer cluster \
+  --source ~/Media \
+  --time-window 120 \
+  --min-samples 3 \
+  --dry-run
+```
+
+- `--time-window` controla la ventana temporal (en minutos) para considerar que dos fotos forman parte del mismo evento (se utiliza DBSCAN).
+- `--min-samples` define cuántos elementos mínimos debe tener un clúster.
+- `--output clusters.json` guarda el resultado en un archivo JSON (omitido en `--dry-run`).
+- `--show-noise` muestra en consola las fotos/vídeos que no han quedado dentro de ningún clúster.
+
+La salida en consola presenta una tabla con los clústeres detectados, el rango temporal, etiquetas sugeridas (por fechas y cámara predominante) y ejemplos de archivos. El JSON generado es ideal para consumirlo desde otras herramientas o para etiquetar posteriormente.
+
+### Fotografías similares
+
+```bash
+media-organizer similars \
+  --source ~/Media \
+  --threshold 5 \
+  --hash-size 16 \
+  --output similitudes.json
+```
+
+- `--threshold` controla la distancia Hamming máxima entre hashes (menor = más estricta).
+- `--hash-size` ajusta la sensibilidad del hash perceptual (8–16 suelen funcionar bien).
+- `--method` permite elegir entre `phash`, `ahash`, `dhash` o `whash`.
+- `--max-pairs` limita los pares mostrados en consola; el JSON siempre contiene el total.
+
+### Línea de tiempo de capturas
+
+```bash
+media-organizer timeline \
+  --source ~/Media \
+  --granularity month \
+  --limit 40 \
+  --output timeline.csv \
+  --chart timeline.html
+```
+
+- Las opciones de granularidad disponibles son `hour`, `day`, `week`, `month` y `year`.
+- Se pueden exportar los datos en JSON/CSV/TSV y generar un HTML con un gráfico interactivo (requiere acceso a CDN para Chart.js).
+- El gráfico y la tabla no modifican archivos originales; únicamente se basan en los metadatos detectados.
 
 ## Notas sobre HEIC
 
