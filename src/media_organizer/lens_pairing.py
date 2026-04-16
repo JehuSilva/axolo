@@ -5,9 +5,8 @@ Insta360 cameras (e.g. X3) record two files per capture — one per lens:
   VID_20260415_182446_10_001.insv  (lens 10)
 
 These represent a single logical asset. This module provides helpers to
-detect pairs and collapse them to a single representative for reporting
-commands (cluster, similars, timeline), while the organizer still moves
-both files physically.
+detect pairs and collapse them to a single representative for the
+duplicates command, while the organizer still moves both files physically.
 """
 
 from __future__ import annotations

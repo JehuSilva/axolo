@@ -29,9 +29,6 @@ pytest --cov=media_organizer
 
 # Run the CLI
 media-organizer run --source ~/Media --destination /mnt/organized --dry-run
-media-organizer cluster --source ~/Media --time-window 120 --min-samples 3 --dry-run
-media-organizer similars --source ~/Media --threshold 5 --output similitudes.json
-media-organizer timeline --source ~/Media --granularity month
 media-organizer duplicates --source ~/Media --algorithm blake2b --output duplicates.json
 media-organizer duplicates --source ~/Media --action move --quarantine ~/Media/_duplicados --dry-run
 ```
@@ -47,12 +44,9 @@ The package lives under `src/media_organizer/` and is installed as the `media-or
 4. `organizer.py` — `MediaOrganizer.organize()` drives the loop: resolves destination path under `<dest>/<CategoryFolder>/<template>/`, handles filename collisions, then applies move/copy/link. Files with unreliable timestamps go to `unknown_date/`.
 5. `cli.py` — Typer app. Each command collects inputs, calls the appropriate module, and renders Rich tables as output.
 
-**360 camera support** (Insta 360 X3): `.insp`/`.insv` added to IMAGE/VIDEO extension sets; `PANORAMIC_360_EXTENSIONS = {".insp", ".insv"}` drives the `is_panoramic` flag. When `is_panoramic=True`, `organizer.py:_resolve_destination` prepends `360/` inside the category folder. `lens_pairing.py` detects dual-lens pairs (`_00_`/`_10_` suffix pattern) and `deduplicate_assets()` is called at the top of `cluster()`, `analyze()`, and `summarize()` to count each capture once in reports.
+**360 camera support** (Insta 360 X3): `.insp`/`.insv` added to IMAGE/VIDEO extension sets; `PANORAMIC_360_EXTENSIONS = {".insp", ".insv"}` drives the `is_panoramic` flag. When `is_panoramic=True`, `organizer.py:_resolve_destination` prepends `360/` inside the category folder. `lens_pairing.py` detects dual-lens pairs (`_00_`/`_10_` suffix pattern) and `deduplicate_assets()` collapses them to one representative per capture in duplicate reports.
 
 **Specialized analysis commands** (read-only, never move files):
-- `clustering.py` — `PhotoClusterer` uses DBSCAN (scikit-learn) on timestamps converted to minutes to suggest album groups. `ClusterParameters` controls `time_window_minutes` (eps) and `min_samples`.
-- `similarity.py` — `SimilarityAnalyzer` computes perceptual hashes (ImageHash library) for images and finds pairs within a Hamming distance threshold.
-- `timeline.py` — `TimelineAnalyzer` buckets `MediaMetadata` timestamps by hour/day/week/month/year for a capture frequency report. Can export CSV/JSON/TSV and generate a Chart.js HTML chart.
 - `duplicates.py` — `DuplicateAnalyzer` groups files by size then hashes (`blake2b` by default) to detect byte-identical copies across all media types. Supports optional actions (`move`/`link`/`delete`) via `apply_duplicate_actions`; `--dry-run` is on by default. Reports `reclaimable_bytes` per group.
 
 **Configuration:**
@@ -62,7 +56,7 @@ The package lives under `src/media_organizer/` and is installed as the `media-or
 - `MediaCategory` (PHOTOS_VIDEOS, MUSIC, DOCUMENTS, OTHER) maps from `MediaType` and determines the top-level destination folder name.
 - `TimestampSource` enum tracks provenance (METADATA > FILE_CREATION > FILENAME > FILE_MODIFICATION). `has_reliable_timestamp` excludes UNKNOWN and FILE_MODIFICATION; files failing this check go to `unknown_date/`.
 - Month names are hardcoded in Spanish (`MONTH_NAMES_ES` / `MONTH_NAMES_ES_SHORT`) in `templates.py`.
-- HEIC support requires `pillow-heif`; clustering requires `numpy` + `scikit-learn`; both are optional at runtime and handled with try/except imports.
+- HEIC support requires `pillow-heif`; it is optional at runtime and handled with a try/except import.
 
 **Template placeholders** available in `--template` / `--profile` strings:
 `{year}`, `{month}`, `{day}`, `{hour}`, `{minute}`, `{second}`, `{stem}`, `{ext}`, `{camera_make}`, `{camera_model}`, `{month_name}`, `{month_name_short}`, `{category}`, `{category_label}`, `{category_slug}`. Extra variables can be injected via `--extra key=value`.

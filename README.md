@@ -7,9 +7,6 @@ Automatic organizer for photos, videos, audio and documents with configurable de
 - Extrae metadatos (EXIF, ID3, PDF, Office) para ordenar archivos multimedia y documentos.
 - Clasifica automáticamente en categorías (`Fotos y Videos`, `Musica`, `Documentos`, `Otros`).
 - Dentro de cada categoría organiza por subcarpeta (Fotos/, Videos/, 360/…) y luego por año/mes (personalizable mediante plantillas).
-- Agrupa fotografías y videos en eventos sugeridos mediante clustering temporal configurable.
-- Identifica fotografías potencialmente duplicadas usando hashing perceptual.
-- Visualiza la cantidad de capturas por periodo (hora, día, semana, mes o año) sin mover archivos.
 - Modo `dry-run` para validar resultados sin mover archivos.
 - Soporte para HEIC mediante `pillow-heif` y compatibilidad ampliada con videos (ffprobe y tags DJI).
 - Soporte nativo para cámaras 360° (Insta360 X3): formatos `.insp`, `.insv` y `.dng`; archivos 360 se ubican en `Fotos_y_Videos/360/`; los pares de lentes (`_00_`/`_10_`) se agrupan como un solo asset en los reportes.
@@ -144,9 +141,6 @@ La salida muestra una tabla con el archivo de origen, el destino calculado, la c
 ### CLI completo
 
 - `run` organiza físicamente los archivos según el template configurado.
-- `cluster` genera agrupaciones sugiriendo álbumes sin mover archivos.
-- `similars` detecta fotos parecidas o duplicadas mediante hashing perceptual.
-- `timeline` resume cuántas capturas hay por periodo y permite exportar la serie temporal.
 - `--config` ruta al archivo YAML de configuración (fuente, destino, acción y perfiles por categoría).
 - `--template` acepta un formato personalizado que se aplica como fallback a todas las categorías.
 - `--extra clave=valor` agrega variables adicionales para usar en templates (ej: `--extra evento=Boda2026`).
@@ -207,50 +201,6 @@ Los archivos que no tengan una fecha de captura confiable se agrupan en `unknown
 | `{category_label}` | Etiqueta legible de categoría | `Fotos y Videos` |
 | `{category_slug}` | Slug de la categoría | `fotos-y-videos` |
 
-## Comandos de análisis
-
-### Agrupamiento de álbumes
-
-```bash
-media-organizer cluster \
-  --source ~/Media \
-  --time-window 120 \
-  --min-samples 3 \
-  --dry-run
-```
-
-- `--time-window` ventana temporal en minutos para considerar dos fotos parte del mismo evento (DBSCAN).
-- `--min-samples` mínimo de elementos para formar un clúster.
-- `--output clusters.json` guarda el resultado en JSON.
-
-### Fotografías similares
-
-```bash
-media-organizer similars \
-  --source ~/Media \
-  --threshold 5 \
-  --hash-size 16 \
-  --output similitudes.json
-```
-
-- `--threshold` distancia Hamming máxima entre hashes (menor = más estricta).
-- `--hash-size` sensibilidad del hash perceptual (8–16 suelen funcionar bien).
-- `--method` elige entre `phash`, `ahash`, `dhash` o `whash`.
-
-### Línea de tiempo de capturas
-
-```bash
-media-organizer timeline \
-  --source ~/Media \
-  --granularity month \
-  --limit 40 \
-  --output timeline.csv \
-  --chart timeline.html
-```
-
-- Granularidades disponibles: `hour`, `day`, `week`, `month`, `year`.
-- Exporta JSON/CSV/TSV y genera HTML con gráfico interactivo (Chart.js).
-
 ## Compatibilidad con cámaras 360 (Insta 360 X3)
 
 | Extensión | Tipo | Metadatos |
@@ -261,7 +211,7 @@ media-organizer timeline \
 
 Los archivos `.insp` e `.insv` se organizan dentro de `Fotos_y_Videos/360/` separados del resto.
 
-La cámara genera **pares de archivos por lente** (`_00_` y `_10_`). Los comandos `cluster`, `similars` y `timeline` los cuentan como un único asset. El comando `run` mueve o copia ambos archivos físicamente.
+La cámara genera **pares de archivos por lente** (`_00_` y `_10_`). El comando `duplicates` los cuenta como un único asset. El comando `run` mueve o copia ambos archivos físicamente.
 
 ## Notas sobre HEIC
 
