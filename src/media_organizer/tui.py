@@ -83,34 +83,114 @@ def _ask_workers() -> int:
         return int(default)
 
 
+_TEMPLATE_DESCRIPTIONS: dict[str, str] = {
+    "default":                    "Año / Mes en español  →  2024/Abril/foto.jpg",
+    "year_month":                 "Numérico  →  2024/04",
+    "year_month_cap":             "Mes capitalizado  →  2024/Abril",
+    "year_month_day":             "Con día  →  2024/04/15",
+    "year_month_name":            "Mes minúsculas  →  2024/abril",
+    "year_month_name_short":      "Mes abreviado  →  2024/abr",
+    "year_month_name_day":        "Con día en español  →  2024/Abril/Abril 15",
+    "camera":                     "Por cámara  →  canon/eos-r5/2024/04",
+    "music_genre_artist":         "Género y artista  →  rock/the-beatles",
+    "music_genre":                "Solo género  →  rock",
+    "documents_year_month":       "Documentos numérico  →  2024/04",
+    "documents_year_month_cap":   "Documentos capitalizado  →  2024/Abril",
+}
+
+
+def _build_profile_choices() -> list:
+    """Return questionary.Choice list covering DEFAULT_TEMPLATES + BUILTIN_PROFILES."""
+    from .config import BUILTIN_PROFILES
+    from .templates import DEFAULT_TEMPLATES
+
+    seen: set[str] = set()
+    choices = []
+    for name in DEFAULT_TEMPLATES:
+        desc = _TEMPLATE_DESCRIPTIONS.get(name, name)
+        choices.append(questionary.Choice(title=f"{name} — {desc}", value=name))
+        seen.add(name)
+    for name, prof in BUILTIN_PROFILES.items():
+        if name not in seen:
+            choices.append(questionary.Choice(title=f"{name} — {prof.description}", value=name))
+    return choices
+
+
 def _wizard_run() -> None:
     """Wizard for the ``run`` (organize) command."""
-    from .config import BUILTIN_PROFILES, OrganizerConfig
+    from .config import DEFAULT_ROUTING, OrganizerConfig, ROUTING_SUBFOLDERS, load_run_config
     from .logging_setup import setup_logging
     from .media_scanner import ScanOptions, iter_media_files
     from .organizer import MediaOrganizer
-    from .templates import DEFAULT_TEMPLATES
 
     console.rule("[bold cyan]Organizar archivos multimedia")
 
     source = _ask_path("Directorio de origen:")
     destination = _ask_path("Directorio de destino:", must_exist=False)
-
-    profile_choices = sorted(set(DEFAULT_TEMPLATES) | set(BUILTIN_PROFILES))
-    profile = questionary.select(
-        "Perfil / template:",
-        choices=profile_choices,
-        default="default",
-    ).ask()
-    if profile is None:
-        raise KeyboardInterrupt
-
     action = _ask_action(choices=("move", "copy", "link"))
     workers = _ask_workers()
-
     dry_run = questionary.confirm("¿Modo dry-run (sin mover archivos reales)?", default=True).ask()
     if dry_run is None:
         raise KeyboardInterrupt
+
+    # Load routing defaults: auto-detect ./config.yaml, fall back to DEFAULT_ROUTING
+    routing: dict = dict(DEFAULT_ROUTING)
+    routing_filename_templates: dict = {}
+    _auto_cfg = Path("config.yaml")
+    if _auto_cfg.exists():
+        try:
+            _file_cfg = load_run_config(_auto_cfg)
+            if _file_cfg.get("routing"):
+                routing.update(_file_cfg["routing"])
+                console.print("[dim]Configuración cargada de config.yaml[/dim]")
+            if _file_cfg.get("routing_filename_templates"):
+                routing_filename_templates.update(_file_cfg["routing_filename_templates"])
+        except Exception:
+            pass
+
+    _TYPE_LABELS = {
+        "fotos": "Fotos",
+        "videos": "Videos",
+        "360-fotos": "Fotos 360°",
+        "360-videos": "Videos 360°",
+        "musica": "Música",
+        "documentos": "Documentos",
+        "otros": "Otros",
+    }
+
+    t = Table(title="Configuración por tipo de archivo")
+    t.add_column("Tipo", style="cyan")
+    t.add_column("Carpeta destino", style="green")
+    t.add_column("Perfil de organización", style="magenta")
+    for key, label in _TYPE_LABELS.items():
+        parts = ROUTING_SUBFOLDERS.get(key, (key,))
+        subfolder = "/".join(parts) if parts else "(raíz categoría)"
+        profile_name = routing.get(key, "default")
+        t.add_row(label, subfolder, profile_name)
+    console.print(t)
+
+    customize = questionary.confirm(
+        "¿Quieres personalizar el perfil de algún tipo de archivo?", default=False
+    ).ask()
+    if customize is None:
+        raise KeyboardInterrupt
+
+    if customize:
+        profile_choices = _build_profile_choices()
+        for key, label in _TYPE_LABELS.items():
+            change = questionary.confirm(
+                f"  ¿Cambiar perfil para {label}? (actual: {routing.get(key, 'default')})",
+                default=False,
+            ).ask()
+            if change:
+                new_profile = questionary.select(
+                    f"  Perfil para {label}:",
+                    choices=profile_choices,
+                    default=routing.get(key, "default"),
+                ).ask()
+                if new_profile is None:
+                    raise KeyboardInterrupt
+                routing[key] = new_profile
 
     setup_logging("INFO")
     files = list(iter_media_files(source, ScanOptions()))
@@ -121,7 +201,6 @@ def _wizard_run() -> None:
 
     console.print(f"[green]Encontrados {len(files)} archivos.[/green]")
 
-    # Preview table (first 10)
     preview_table = Table(title="Vista previa (primeros 10 archivos)")
     preview_table.add_column("Archivo", style="cyan")
     for f in files[:10]:
@@ -139,8 +218,10 @@ def _wizard_run() -> None:
         source=source,
         destination=destination,
         action=action,
-        template=profile,
+        template="default",
         dry_run=dry_run,
+        routing=routing,
+        routing_filename_templates=routing_filename_templates,
     )
     organizer = MediaOrganizer(config=config, workers=workers)
     summary = organizer.organize(files)

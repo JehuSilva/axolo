@@ -54,9 +54,9 @@ def test_wizard_run_invokes_organizer(tmp_path: Path):
 
         # Setup answer sequences
         mock_path.return_value.ask.side_effect = [str(src), str(dst)]
-        mock_select.return_value.ask.side_effect = ["default", "copy"]
+        mock_select.return_value.ask.side_effect = ["copy"]
         mock_text.return_value.ask.return_value = "1"
-        mock_confirm.return_value.ask.side_effect = [True, True]  # dry_run=True, confirmed=True
+        mock_confirm.return_value.ask.side_effect = [True, False, True]  # dry_run, customize=No, confirmed
 
         from media_organizer.tui import _wizard_run
         _wizard_run()  # should not raise

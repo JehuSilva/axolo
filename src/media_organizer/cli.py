@@ -134,6 +134,8 @@ def run(
         include_extensions=include_ext or file_cfg.get("include_extensions", []),
         exclude_extensions=exclude_ext or file_cfg.get("exclude_extensions", []),
         extra=extra_values,
+        routing=file_cfg.get("routing", {}),
+        routing_filename_templates=file_cfg.get("routing_filename_templates", {}),
     )
 
     scan_options = ScanOptions(

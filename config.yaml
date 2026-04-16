@@ -52,8 +52,8 @@ profiles:
     # Resultado: Documentos/2026/Abril/contrato.pdf
 
   # - name: otros
-  #   template: year_month_name
-  #   # Resultado: Otros/2026/abril/archivo.zip
+  #   template: year_month_cap
+  #   # Resultado: Otros/2026/Abril/archivo.zip
 
 # ── Opciones ───────────────────────────────────────────────────────────────────
 dry_run: false

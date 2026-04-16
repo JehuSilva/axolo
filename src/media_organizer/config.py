@@ -60,7 +60,7 @@ DEFAULT_ROUTING: Dict[str, str] = {
     "360-videos": "default",           # {year}/{month_name_cap}
     "musica":     "music_genre_artist", # {music_genre}/{music_artist}
     "documentos": "year_month_cap",    # {year}/{month_name_cap}
-    "otros":      "year_month_name",   # {year}/{month_name}
+    "otros":      "year_month_cap",   # {year}/{month_name}
 }
 
 # ── Default filename-renaming templates per routing key ───────────────────────
