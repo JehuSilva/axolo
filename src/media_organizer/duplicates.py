@@ -20,8 +20,10 @@ from typing import Dict, List, Literal, Optional, Sequence, Tuple
 
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TimeElapsedColumn
 
+from .journal import Journal
 from .lens_pairing import deduplicate_assets
 from .metadata import MediaMetadata
+from .parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +195,7 @@ class DuplicateAnalyzer:
         chunk_size: int = 1 << 20,  # 1 MiB
         min_size: int = 1,
         prefer_under: Optional[Path] = None,
+        workers: int = 4,
     ) -> None:
         if algorithm not in _VALID_ALGORITHMS:
             raise ValueError(
@@ -207,8 +210,11 @@ class DuplicateAnalyzer:
         self.chunk_size = chunk_size
         self.min_size = min_size
         self.prefer_under = prefer_under
+        self.workers = workers
 
-    def analyze(self, items: Sequence[MediaMetadata], *, show_progress: bool = True) -> DuplicatesReport:
+    def analyze(
+        self, items: Sequence[MediaMetadata], *, show_progress: bool = True
+    ) -> DuplicatesReport:
         """Scan *items* and return a report with groups of byte-identical files."""
         scanned = len(items)
 
@@ -239,31 +245,40 @@ class DuplicateAnalyzer:
             scanned,
         )
 
-        # Phase 2: hash each candidate and group by (size, digest).
+        # Phase 2: hash candidates in parallel, group by (size, digest).
+        algorithm = self.algorithm
+        chunk_size = self.chunk_size
+
+        def _hash_candidate(
+            pair: Tuple[MediaMetadata, int],
+        ) -> Tuple[MediaMetadata, int, Optional[str], int]:
+            item, size = pair
+            digest, nbytes = _hash_file(item.source_path, algorithm, chunk_size)
+            return item, size, digest, nbytes
+
+        hash_results = parallel_map(
+            _hash_candidate,
+            candidates,
+            workers=self.workers,
+            show_progress=show_progress,
+            description="Calculando hashes...",
+        )
+
         hash_groups: Dict[Tuple[int, str], List[MediaMetadata]] = {}
         processed = 0
         hashed_bytes = 0
 
-        with Progress(
-            SpinnerColumn(),
-            "[progress.description]{task.description}",
-            BarColumn(),
-            MofNCompleteColumn(),
-            TimeElapsedColumn(),
-            disable=not show_progress,
-        ) as progress:
-            task = progress.add_task(
-                "Calculando hashes...", total=len(candidates)
-            )
-            for item, size in candidates:
-                digest, nbytes = _hash_file(item.source_path, self.algorithm, self.chunk_size)
-                progress.advance(task)
-                if digest is None:
-                    skipped += 1
-                    continue
-                processed += 1
-                hashed_bytes += nbytes
-                hash_groups.setdefault((size, digest), []).append(item)
+        for raw in hash_results:
+            if isinstance(raw, BaseException):
+                skipped += 1
+                continue
+            item, size, digest, nbytes = raw
+            if digest is None:
+                skipped += 1
+                continue
+            processed += 1
+            hashed_bytes += nbytes
+            hash_groups.setdefault((size, digest), []).append(item)
 
         logger.debug(
             "Fase 2 completada: %d archivos hasheados, %d bytes leídos.",
@@ -335,6 +350,8 @@ def apply_duplicate_actions(
     link_kind: Literal["hard", "symbolic"] = "hard",
     dry_run: bool = True,
     show_progress: bool = True,
+    journal: Optional[Journal] = None,
+    run_id: Optional[str] = None,
 ) -> List[ActionOutcome]:
     """Apply *action* to all non-canonical files in *report*.
 
@@ -371,6 +388,7 @@ def apply_duplicate_actions(
     total_dups = sum(len(g.duplicates) for g in report.groups)
     outcomes: List[ActionOutcome] = []
 
+    seq = 0
     with Progress(
         SpinnerColumn(),
         "[progress.description]{task.description}",
@@ -384,6 +402,8 @@ def apply_duplicate_actions(
             canonical_path = group.canonical.metadata.source_path
             for dup_file in group.duplicates:
                 src = dup_file.metadata.source_path
+                outcome_error: Optional[str] = None
+                dest: Optional[Path] = None
 
                 if action == "move":
                     assert quarantine is not None  # guarded above
@@ -399,23 +419,15 @@ def apply_duplicate_actions(
                             dest.parent.mkdir(parents=True, exist_ok=True)
                             shutil.move(str(src), str(dest))
                         except OSError as exc:
-                            outcomes.append(
-                                ActionOutcome(
-                                    source=src, destination=dest,
-                                    action="move", dry_run=False, error=str(exc),
-                                )
-                            )
-                            prog.advance(task)
-                            continue
+                            outcome_error = str(exc)
                     outcomes.append(
-                        ActionOutcome(source=src, destination=dest, action="move", dry_run=dry_run)
+                        ActionOutcome(source=src, destination=dest, action="move",
+                                      dry_run=dry_run, error=outcome_error)
                     )
 
                 elif action == "link":
                     dest = canonical_path
                     if not dry_run:
-                        # Atomic replacement: create new link at a temp path, then
-                        # rename it over src so src is never left deleted on failure.
                         tmp = src.with_name(src.name + ".dedup_tmp")
                         try:
                             if link_kind == "hard":
@@ -425,16 +437,10 @@ def apply_duplicate_actions(
                             tmp.replace(src)
                         except OSError as exc:
                             tmp.unlink(missing_ok=True)
-                            outcomes.append(
-                                ActionOutcome(
-                                    source=src, destination=dest,
-                                    action="link", dry_run=False, error=str(exc),
-                                )
-                            )
-                            prog.advance(task)
-                            continue
+                            outcome_error = str(exc)
                     outcomes.append(
-                        ActionOutcome(source=src, destination=dest, action="link", dry_run=dry_run)
+                        ActionOutcome(source=src, destination=dest, action="link",
+                                      dry_run=dry_run, error=outcome_error)
                     )
 
                 elif action == "delete":
@@ -442,18 +448,22 @@ def apply_duplicate_actions(
                         try:
                             src.unlink()
                         except OSError as exc:
-                            outcomes.append(
-                                ActionOutcome(
-                                    source=src, destination=None,
-                                    action="delete", dry_run=False, error=str(exc),
-                                )
-                            )
-                            prog.advance(task)
-                            continue
+                            outcome_error = str(exc)
                     outcomes.append(
-                        ActionOutcome(source=src, destination=None, action="delete", dry_run=dry_run)
+                        ActionOutcome(source=src, destination=None, action="delete",
+                                      dry_run=dry_run, error=outcome_error)
                     )
 
+                # Journal: record successful (non-dry-run, non-error) actions
+                if journal and run_id and not dry_run and outcome_error is None:
+                    try:
+                        size = dup_file.size
+                        journal.record(run_id, seq=seq, action=action, src=src,
+                                       dst=dest, size=size)
+                    except Exception as jexc:
+                        logger.warning("Error al escribir en el journal: %s", jexc)
+
+                seq += 1
                 prog.advance(task)
 
     return outcomes

@@ -6,41 +6,8 @@ import re
 from pathlib import Path
 from typing import Dict, Optional
 
+from .i18n import MONTH_NAMES_ES, MONTH_NAMES_ES_CAP, MONTH_NAMES_ES_SHORT
 from .metadata import MediaMetadata
-
-MONTH_NAMES_ES = [
-    "",
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-]
-
-MONTH_NAMES_ES_SHORT = [
-    "",
-    "ene",
-    "feb",
-    "mar",
-    "abr",
-    "may",
-    "jun",
-    "jul",
-    "ago",
-    "sep",
-    "oct",
-    "nov",
-    "dic",
-]
-
-MONTH_NAMES_ES_CAP = [name.capitalize() for name in MONTH_NAMES_ES]
 
 DEFAULT_TEMPLATES: Dict[str, str] = {
     "default": "{year}/{month_name_cap}",
