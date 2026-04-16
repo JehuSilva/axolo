@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 from .config import OrganizerConfig, TemplateProfile
-from .metadata import MediaCategory, MediaMetadata, extract_metadata
+from .metadata import MediaCategory, MediaMetadata, MediaType, extract_metadata
 from .templates import render_template
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,9 @@ class MediaOrganizer:
 
     def _resolve_destination(self, metadata: MediaMetadata) -> Path:
         base_dir = self._category_root(metadata)
+        if metadata.is_panoramic:
+            subtype = "Videos" if metadata.media_type == MediaType.VIDEO else "Fotos"
+            base_dir = base_dir / "360" / subtype
         if metadata.has_reliable_timestamp:
             relative = render_template(metadata, self.template, self.config.extra)
             destination_dir = (base_dir / relative).resolve()

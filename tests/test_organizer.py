@@ -60,6 +60,84 @@ def test_media_organizer_resolves_collisions(tmp_path, monkeypatch):
     assert summary.results[0].category == MediaCategory.PHOTOS_VIDEOS
 
 
+def test_media_organizer_routes_panoramic_video_to_360_videos(tmp_path, monkeypatch):
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+
+    file_path = source / "VID_20260415_182446_00_001.insv"
+    file_path.write_bytes(b"fake insv data")
+
+    def fake_extract(path: Path) -> MediaMetadata:
+        return MediaMetadata(
+            source_path=path,
+            media_type=MediaType.VIDEO,
+            category=MediaCategory.PHOTOS_VIDEOS,
+            captured_at=datetime(2026, 4, 15, 18, 24, 46, tzinfo=timezone.utc),
+            original_name=path.name,
+            timestamp_source=TimestampSource.FILENAME,
+            is_panoramic=True,
+        )
+
+    monkeypatch.setattr("media_organizer.organizer.extract_metadata", fake_extract)
+
+    config = OrganizerConfig(
+        source=source,
+        destination=destination,
+        action="copy",
+        template="default",
+        dry_run=True,
+    )
+
+    organizer = MediaOrganizer(config=config)
+    files = list(iter_media_files(source, ScanOptions(recursive=True)))
+    summary = organizer.organize(files)
+
+    category_folder = MediaCategory.PHOTOS_VIDEOS.folder_name()
+    expected = destination / category_folder / "360" / "Videos" / "2026" / "04" / file_path.name
+    assert summary.results[0].destination == expected
+
+
+def test_media_organizer_routes_panoramic_photo_to_360_fotos(tmp_path, monkeypatch):
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+
+    file_path = source / "IMG_20260415_182550_00_003.insp"
+    file_path.write_bytes(b"fake insp data")
+
+    def fake_extract(path: Path) -> MediaMetadata:
+        return MediaMetadata(
+            source_path=path,
+            media_type=MediaType.IMAGE,
+            category=MediaCategory.PHOTOS_VIDEOS,
+            captured_at=datetime(2026, 4, 15, 18, 25, 50, tzinfo=timezone.utc),
+            original_name=path.name,
+            timestamp_source=TimestampSource.METADATA,
+            is_panoramic=True,
+        )
+
+    monkeypatch.setattr("media_organizer.organizer.extract_metadata", fake_extract)
+
+    config = OrganizerConfig(
+        source=source,
+        destination=destination,
+        action="copy",
+        template="default",
+        dry_run=True,
+    )
+
+    organizer = MediaOrganizer(config=config)
+    files = list(iter_media_files(source, ScanOptions(recursive=True)))
+    summary = organizer.organize(files)
+
+    category_folder = MediaCategory.PHOTOS_VIDEOS.folder_name()
+    expected = destination / category_folder / "360" / "Fotos" / "2026" / "04" / file_path.name
+    assert summary.results[0].destination == expected
+
+
 def test_media_organizer_sends_unreliable_files_to_unknown(tmp_path, monkeypatch):
     source = tmp_path / "source"
     destination = tmp_path / "destination"

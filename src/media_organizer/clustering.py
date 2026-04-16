@@ -9,6 +9,7 @@ from typing import Iterable, List, Sequence
 
 import numpy as np
 
+from .lens_pairing import deduplicate_assets
 from .metadata import MediaCategory, MediaMetadata
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,7 @@ class PhotoClusterer:
 
     def cluster(self, items: Sequence[MediaMetadata]) -> ClusterSummary:
         """Group the provided media metadata into clusters."""
+        items = deduplicate_assets(items)
         total_items = len(items)
         filtered: list[MediaMetadata] = [
             item

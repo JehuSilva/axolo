@@ -82,6 +82,7 @@ class MediaMetadata:
     camera_model: Optional[str] = None
     original_name: Optional[str] = None
     timestamp_source: TimestampSource = TimestampSource.METADATA
+    is_panoramic: bool = False
 
     @property
     def stem(self) -> str:
@@ -113,6 +114,8 @@ IMAGE_EXTENSIONS = {
     ".cr2",
     ".nef",
     ".arw",
+    ".dng",
+    ".insp",
 }
 
 VIDEO_EXTENSIONS = {
@@ -128,7 +131,10 @@ VIDEO_EXTENSIONS = {
     ".webm",
     ".mts",
     ".m2ts",
+    ".insv",
 }
+
+PANORAMIC_360_EXTENSIONS = {".insp", ".insv", ".dng"}
 
 AUDIO_EXTENSIONS = {
     ".mp3",
@@ -218,7 +224,7 @@ def extract_metadata(path: Path) -> MediaMetadata:
     if media_type == MediaType.IMAGE:
         captured_at, camera_make, camera_model, timestamp_source = _extract_image_metadata(path)
     elif media_type == MediaType.VIDEO:
-        captured_at, timestamp_source = _extract_video_metadata(path)
+        captured_at, camera_make, camera_model, timestamp_source = _extract_video_metadata(path)
     elif media_type == MediaType.AUDIO:
         captured_at, timestamp_source = _extract_audio_metadata(path)
     elif media_type == MediaType.DOCUMENT:
@@ -230,6 +236,15 @@ def extract_metadata(path: Path) -> MediaMetadata:
     if captured_at is None:
         captured_at, timestamp_source = _filesystem_timestamp(path)
 
+    suffix = path.suffix.lower()
+    is_panoramic = suffix in PANORAMIC_360_EXTENSIONS
+
+    # Fallback make/model for Insta360 formats when not recoverable from metadata.
+    if is_panoramic and not camera_make:
+        camera_make = "Arashi Vision"
+    if is_panoramic and not camera_model:
+        camera_model = "Insta360 X3"
+
     return MediaMetadata(
         source_path=path,
         media_type=media_type,
@@ -239,6 +254,7 @@ def extract_metadata(path: Path) -> MediaMetadata:
         camera_model=camera_model,
         original_name=path.name,
         timestamp_source=timestamp_source,
+        is_panoramic=is_panoramic,
     )
 
 
@@ -265,19 +281,23 @@ def _extract_image_metadata(
     return captured_at, _clean_string(make), _clean_string(model), timestamp_source
 
 
-def _extract_video_metadata(path: Path) -> tuple[Optional[datetime], TimestampSource]:
-    captured_at, source = _extract_video_metadata_ffprobe(path)
+def _extract_video_metadata(
+    path: Path,
+) -> tuple[Optional[datetime], Optional[str], Optional[str], TimestampSource]:
+    captured_at, camera_make, camera_model, source = _extract_video_metadata_ffprobe(path)
     if captured_at:
-        return captured_at, source
+        return captured_at, camera_make, camera_model, source
 
     container_datetime = _extract_quicktime_creation(path)
     if container_datetime:
-        return container_datetime, TimestampSource.CONTAINER_METADATA
+        return container_datetime, None, None, TimestampSource.CONTAINER_METADATA
 
-    return None, TimestampSource.UNKNOWN
+    return None, None, None, TimestampSource.UNKNOWN
 
 
-def _extract_video_metadata_ffprobe(path: Path) -> tuple[Optional[datetime], TimestampSource]:
+def _extract_video_metadata_ffprobe(
+    path: Path,
+) -> tuple[Optional[datetime], Optional[str], Optional[str], TimestampSource]:
     cmd = [
         "ffprobe",
         "-v",
@@ -290,7 +310,10 @@ def _extract_video_metadata_ffprobe(path: Path) -> tuple[Optional[datetime], Tim
             "com.apple.quicktime.creationdate,"
             "create_date,"
             "creation_date,"
-            "date"
+            "date,"
+            "make,"
+            "model,"
+            "com.insta360.model"
         ),
         "-show_entries",
         (
@@ -298,7 +321,10 @@ def _extract_video_metadata_ffprobe(path: Path) -> tuple[Optional[datetime], Tim
             "com.apple.quicktime.creationdate,"
             "create_date,"
             "creation_date,"
-            "date"
+            "date,"
+            "make,"
+            "model,"
+            "com.insta360.model"
         ),
         str(path),
     ]
@@ -311,16 +337,16 @@ def _extract_video_metadata_ffprobe(path: Path) -> tuple[Optional[datetime], Tim
         )
     except FileNotFoundError:
         logger.debug("ffprobe no está instalado; usando marca de tiempo del sistema.")
-        return None, TimestampSource.UNKNOWN
+        return None, None, None, TimestampSource.UNKNOWN
     except subprocess.CalledProcessError as exc:
         logger.debug("ffprobe falló en %s: %s", path, exc)
-        return None, TimestampSource.UNKNOWN
+        return None, None, None, TimestampSource.UNKNOWN
 
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
         logger.debug("ffprobe devolvió una salida no válida para %s", path)
-        return None, TimestampSource.UNKNOWN
+        return None, None, None, TimestampSource.UNKNOWN
 
     tags_sources: list[dict[str, str]] = []
     format_tags = payload.get("format", {}).get("tags")
@@ -332,7 +358,7 @@ def _extract_video_metadata_ffprobe(path: Path) -> tuple[Optional[datetime], Tim
         if isinstance(stream_tags, dict):
             tags_sources.append(stream_tags)
 
-    tag_keys = [
+    timestamp_tag_keys = [
         "com.apple.quicktime.creationdate",
         "creation_time",
         "create_date",
@@ -340,16 +366,39 @@ def _extract_video_metadata_ffprobe(path: Path) -> tuple[Optional[datetime], Tim
         "date",
         "CreationDate",
     ]
+    camera_make_keys = ["make"]
+    camera_model_keys = ["com.insta360.model", "model"]
+
+    captured_at: Optional[datetime] = None
+    camera_make: Optional[str] = None
+    camera_model: Optional[str] = None
 
     for tags in tags_sources:
-        for key in tag_keys:
-            value = tags.get(key)
-            if value:
-                parsed = _parse_flexible_datetime(value)
-                if parsed:
-                    return parsed, TimestampSource.METADATA
+        if captured_at is None:
+            for key in timestamp_tag_keys:
+                value = tags.get(key)
+                if value:
+                    parsed = _parse_flexible_datetime(value)
+                    if parsed:
+                        captured_at = parsed
+                        break
+        if camera_make is None:
+            for key in camera_make_keys:
+                value = tags.get(key)
+                if value and isinstance(value, str) and value.strip():
+                    camera_make = value.strip()
+                    break
+        if camera_model is None:
+            for key in camera_model_keys:
+                value = tags.get(key)
+                if value and isinstance(value, str) and value.strip():
+                    camera_model = value.strip()
+                    break
 
-    return None, TimestampSource.UNKNOWN
+    if captured_at:
+        return captured_at, camera_make, camera_model, TimestampSource.METADATA
+
+    return None, camera_make, camera_model, TimestampSource.UNKNOWN
 
 
 def _extract_quicktime_creation(path: Path) -> Optional[datetime]:

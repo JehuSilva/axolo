@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import List, Sequence, Tuple
 
+from .lens_pairing import deduplicate_assets
 from .metadata import MediaMetadata
 
 
@@ -53,6 +54,7 @@ class TimelineAnalyzer:
         self.granularity = granularity
 
     def summarize(self, items: Sequence[MediaMetadata]) -> TimelineReport:
+        items = deduplicate_assets(items)
         groups: dict[Tuple[int, ...], Tuple[TimelinePoint, int]] = {}
         for item in items:
             dt = self._normalize_datetime(item.captured_at)

@@ -45,6 +45,8 @@ The package lives under `src/media_organizer/` and is installed as the `media-or
 4. `organizer.py` — `MediaOrganizer.organize()` drives the loop: resolves destination path under `<dest>/<CategoryFolder>/<template>/`, handles filename collisions, then applies move/copy/link. Files with unreliable timestamps go to `unknown_date/`.
 5. `cli.py` — Typer app. Each command collects inputs, calls the appropriate module, and renders Rich tables as output.
 
+**360 camera support** (Insta 360 X3): `.insp`/`.insv` added to IMAGE/VIDEO extension sets; `PANORAMIC_360_EXTENSIONS = {".insp", ".insv"}` drives the `is_panoramic` flag. When `is_panoramic=True`, `organizer.py:_resolve_destination` prepends `360/` inside the category folder. `lens_pairing.py` detects dual-lens pairs (`_00_`/`_10_` suffix pattern) and `deduplicate_assets()` is called at the top of `cluster()`, `analyze()`, and `summarize()` to count each capture once in reports.
+
 **Specialized analysis commands** (read-only, never move files):
 - `clustering.py` — `PhotoClusterer` uses DBSCAN (scikit-learn) on timestamps converted to minutes to suggest album groups. `ClusterParameters` controls `time_window_minutes` (eps) and `min_samples`.
 - `similarity.py` — `SimilarityAnalyzer` computes perceptual hashes (ImageHash library) for images and finds pairs within a Hamming distance threshold.

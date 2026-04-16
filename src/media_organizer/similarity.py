@@ -10,6 +10,7 @@ from typing import Callable, List, Sequence, Tuple
 from PIL import Image, UnidentifiedImageError
 import imagehash
 
+from .lens_pairing import deduplicate_assets
 from .metadata import MediaMetadata, MediaType
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ class SimilarityAnalyzer:
 
     def analyze(self, items: Sequence[MediaMetadata]) -> SimilarityReport:
         """Return a report with suspected duplicates."""
+        items = deduplicate_assets(items)
         scanned = len(items)
         filtered = [item for item in items if item.media_type == MediaType.IMAGE]
         processed = 0

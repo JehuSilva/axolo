@@ -12,6 +12,7 @@ Automatic organizer for photos, videos, audio and documents with configurable de
 - Visualiza la cantidad de capturas por periodo (hora, día, semana, mes o año) sin mover archivos.
 - Modo `dry-run` para validar resultados sin mover archivos.
 - Soporte para HEIC mediante `pillow-heif` y compatibilidad ampliada con videos (ffprobe y tags DJI).
+- Soporte nativo para cámaras 360° (Insta360 X3): formatos `.insp`, `.insv` y `.dng`; archivos 360 se ubican en `Fotos_y_Videos/360/`; los pares de lentes (`_00_`/`_10_`) se agrupan como un solo asset en los reportes.
 - Archivos sin fecha confiable se ubican automáticamente en `unknown_date/` dentro de su categoría.
 - Empaquetado multiplataforma mediante PyInstaller (scripts incluidos posteriormente).
 
@@ -127,6 +128,20 @@ Ejemplo básico con PyInstaller (desde un entorno virtual):
 ```bash
 pyinstaller --name media-organizer --onefile -p src media_organizer/cli.py
 ```
+
+## Compatibilidad con cámaras 360 (Insta 360 X3)
+
+Los formatos propietarios de la Insta 360 X3 son reconocidos automáticamente:
+
+| Extensión | Tipo | Metadatos |
+|-----------|------|-----------|
+| `.insp` | Foto 360 (JPEG con datos 360 al final) | EXIF vía Pillow |
+| `.insv` | Video 360 (contenedor MP4) | QuickTime atoms + ffprobe si está disponible |
+| `.dng` | RAW (Adobe DNG) | Nombre de archivo como fallback (Pillow no soporta DNG nativamente) |
+
+Los archivos `.insp` e `.insv` se organizan dentro de `Fotos_y_Videos/360/` en lugar de la raíz de esa categoría, manteniendo los archivos 360 separados del resto.
+
+La cámara genera **pares de archivos por lente** para cada captura de video (sufijos `_00_` y `_10_`). Los comandos `cluster`, `similars` y `timeline` los cuentan como un único asset para evitar duplicados en los reportes. El comando `run` mueve o copia ambos archivos físicamente.
 
 ## Pruebas
 
