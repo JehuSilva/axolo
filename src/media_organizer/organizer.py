@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from collections import Counter
+import errno
 import logging
 import os
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Sequence
+
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TimeElapsedColumn
 
 from .config import ROUTING_SUBFOLDERS, OrganizerConfig
 from .metadata import MediaCategory, MediaMetadata, MediaType, extract_metadata
@@ -75,27 +79,38 @@ class OrganizeSummary:
 
 
 class MediaOrganizer:
-    def __init__(self, config: OrganizerConfig) -> None:
+    def __init__(self, config: OrganizerConfig, *, show_progress: bool = True) -> None:
         self.config = config
+        self.show_progress = show_progress
 
-    def organize(self, files: Iterable[Path]) -> OrganizeSummary:
+    def organize(self, files: Sequence[Path]) -> OrganizeSummary:
         summary = OrganizeSummary()
-        for file_path in files:
-            metadata: Optional[MediaMetadata] = None
-            try:
-                metadata = extract_metadata(file_path)
-                destination = self._resolve_destination(metadata)
-                result = self._apply_action(metadata, destination)
-            except Exception as exc:  # pragma: no cover - errores inesperados
-                logger.exception("Error al procesar %s", file_path)
-                result = FileResult(
-                    source=file_path,
-                    destination=file_path,
-                    status="failed",
-                    message=str(exc),
-                    category=metadata.category if metadata else None,
-                )
-            summary.add(result)
+        with Progress(
+            SpinnerColumn(),
+            "[progress.description]{task.description}",
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            disable=not self.show_progress,
+        ) as prog:
+            task = prog.add_task("Organizando archivos...", total=len(files))
+            for file_path in files:
+                metadata: Optional[MediaMetadata] = None
+                try:
+                    metadata = extract_metadata(file_path)
+                    destination = self._resolve_destination(metadata)
+                    result = self._apply_action(metadata, destination)
+                except Exception as exc:  # pragma: no cover - errores inesperados
+                    logger.exception("Error al procesar %s", file_path)
+                    result = FileResult(
+                        source=file_path,
+                        destination=file_path,
+                        status="failed",
+                        message=str(exc),
+                        category=metadata.category if metadata else None,
+                    )
+                summary.add(result)
+                prog.advance(task)
         return summary
 
     def _get_routing_key(self, metadata: MediaMetadata) -> str:
@@ -140,7 +155,9 @@ class MediaOrganizer:
 
         stem = Path(filename).stem
         suffix = Path(filename).suffix or metadata.suffix
-        destination_dir.mkdir(parents=True, exist_ok=True)
+
+        if not self.config.dry_run:
+            destination_dir.mkdir(parents=True, exist_ok=True)
 
         candidate = destination_dir / filename
         counter = 1
@@ -169,13 +186,13 @@ class MediaOrganizer:
         action = self.config.action
         try:
             if action == "move":
-                shutil.move(str(source), str(destination))
+                _safe_move(source, destination)
                 status = "moved"
             elif action == "copy":
                 shutil.copy2(str(source), str(destination))
                 status = "copied"
             elif action == "link":
-                self._create_link(source, destination)
+                self._create_link(source, destination, self.config.link_kind)
                 status = "linked"
             else:
                 raise ValueError(f"Acción desconocida: {action}")
@@ -194,9 +211,48 @@ class MediaOrganizer:
         )
 
     @staticmethod
-    def _create_link(source: Path, destination: Path) -> None:
-        try:
-            os.symlink(source, destination)
-        except (NotImplementedError, OSError):
-            # Cuando el sistema no permite symlinks, se intenta con hardlink
+    def _create_link(source: Path, destination: Path, link_kind: str = "symbolic") -> None:
+        if link_kind == "hard":
             os.link(source, destination)
+        else:
+            try:
+                os.symlink(source, destination)
+            except (NotImplementedError, OSError) as exc:
+                logger.warning(
+                    "symlink no soportado (%s), usando hardlink para %s", exc, source
+                )
+                os.link(source, destination)
+
+
+def _safe_move(source: Path, destination: Path) -> None:
+    """Move *source* to *destination*, handling cross-device (EXDEV) moves safely.
+
+    Tries an atomic ``os.rename`` first.  On EXDEV (different filesystems),
+    falls back to copy-fsync-replace-unlink so the destination is never
+    left partially written if the process is interrupted.
+    """
+    try:
+        source.rename(destination)
+        return
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+
+    # Cross-device: write to a temp file in the destination directory,
+    # then atomically replace the final path and remove the source.
+    tmp: Optional[Path] = None
+    try:
+        tmp_fd, tmp_str = tempfile.mkstemp(dir=destination.parent, suffix=".mo_tmp")
+        os.close(tmp_fd)
+        tmp = Path(tmp_str)
+        with source.open("rb") as src_fh, tmp.open("wb") as dst_fh:
+            shutil.copyfileobj(src_fh, dst_fh)
+            dst_fh.flush()
+            os.fsync(dst_fh.fileno())
+        shutil.copystat(str(source), str(tmp))
+        tmp.replace(destination)
+        source.unlink()
+    except Exception:
+        if tmp is not None:
+            tmp.unlink(missing_ok=True)
+        raise

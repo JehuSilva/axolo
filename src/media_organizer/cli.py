@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import typer
 from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TimeElapsedColumn
 from rich.table import Table
 
 from .config import BUILTIN_PROFILES, OrganizerConfig, load_run_config
@@ -19,11 +20,13 @@ from .duplicates import (
     DuplicatesReport,
     apply_duplicate_actions,
 )
+from .logging_setup import setup_logging
 from .media_scanner import ScanOptions, iter_media_files
 from .metadata import MediaMetadata, extract_metadata
 from .organizer import MediaOrganizer, OrganizeSummary
 from .templates import DEFAULT_TEMPLATES
 
+logger = logging.getLogger(__name__)
 console = Console()
 app = typer.Typer(add_completion=False, help="Organiza fotos y videos en carpetas.")
 
@@ -40,22 +43,28 @@ def _parse_extra(extra: Optional[List[str]]) -> Dict[str, str]:
     return result
 
 
-def _setup_logging(level: str) -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    )
-
-
-def _collect_metadata(paths: Iterable[Path]) -> Tuple[List[MediaMetadata], List[str]]:
+def _collect_metadata(
+    paths: Iterable[Path], *, show_progress: bool = True
+) -> Tuple[List[MediaMetadata], List[str]]:
+    paths_list = list(paths)
     metadata_items: list[MediaMetadata] = []
     errors: list[str] = []
-    for path in paths:
-        try:
-            metadata_items.append(extract_metadata(path))
-        except Exception as exc:  # pragma: no cover - errores inesperados de extract_metadata
-            logger.warning("Error al extraer metadatos de %s: %s", path, exc)
-            errors.append(f"{path}: {exc}")
+    with Progress(
+        SpinnerColumn(),
+        "[progress.description]{task.description}",
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        disable=not show_progress,
+    ) as prog:
+        task = prog.add_task("Extrayendo metadatos...", total=len(paths_list))
+        for path in paths_list:
+            try:
+                metadata_items.append(extract_metadata(path))
+            except Exception as exc:
+                logger.warning("Error al extraer metadatos de %s: %s", path, exc)
+                errors.append(f"{path}: {exc}")
+            prog.advance(task)
     return metadata_items, errors
 
 
@@ -72,6 +81,7 @@ def run(
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Nombre del perfil a usar."),
     template: Optional[str] = typer.Option(None, "--template", help="Template personalizado (ignora --profile)."),
     action: Optional[str] = typer.Option(None, "--action", "-a", help="Acción sobre los archivos (move|copy|link)."),
+    link_kind: str = typer.Option("symbolic", "--link-kind", help="Tipo de enlace para --action link: hard|symbolic."),
     dry_run: Optional[bool] = typer.Option(None, "--dry-run/--no-dry-run", help="Muestra los cambios sin mover archivos."),
     recursive: Optional[bool] = typer.Option(None, "--recursive/--no-recursive", help="Buscar archivos de forma recursiva."),
     follow_symlinks: Optional[bool] = typer.Option(None, "--follow-symlinks/--no-follow-symlinks", help="Seguir enlaces simbólicos."),
@@ -79,12 +89,21 @@ def run(
     exclude_ext: Optional[List[str]] = typer.Option(None, "--exclude-ext", help="Extensiones a excluir (puede repetirse)."),
     extra: Optional[List[str]] = typer.Option(None, "--extra", help="Pares clave=valor para usar en el template."),
     log_level: str = typer.Option("INFO", "--log-level", help="Nivel de logging (DEBUG, INFO, WARNING, ERROR)."),
+    quiet: bool = typer.Option(False, "--quiet/--no-quiet", help="Suprime mensajes de consola; solo errores críticos."),
+    verbose: bool = typer.Option(False, "--verbose/--no-verbose", help="Activa logging DEBUG."),
+    json_logs: bool = typer.Option(False, "--json-logs/--no-json-logs", help="Emite logs como JSON Lines (desactiva Rich)."),
 ) -> None:
     """Organiza archivos multimedia según el template configurado."""
-    _setup_logging(log_level)
+    setup_logging(log_level, quiet=quiet, verbose=verbose, json_logs=json_logs)
+    show_progress = not (quiet or json_logs)
 
     # Load base config from YAML file, then override with any CLI flags provided.
-    file_cfg = load_run_config(config_path) if config_path else {}
+    file_cfg: dict = {}
+    if config_path:
+        try:
+            file_cfg = load_run_config(config_path)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc), param_name="config") from exc
 
     effective_source = source or (Path(file_cfg["source"]).expanduser() if "source" in file_cfg else None)
     effective_dest = destination or (Path(file_cfg["destination"]).expanduser() if "destination" in file_cfg else None)
@@ -105,6 +124,10 @@ def run(
     effective_action = raw_action.lower()
     if effective_action not in {"move", "copy", "link"}:
         raise typer.BadParameter("La acción debe ser move, copy o link.", param_name="action")
+
+    link_kind = link_kind.lower()
+    if link_kind not in {"hard", "symbolic"}:
+        raise typer.BadParameter("link-kind debe ser 'hard' o 'symbolic'.", param_name="link-kind")
 
     # Resolve template: CLI --template > CLI --profile > config file > prompt
     if template:
@@ -139,6 +162,7 @@ def run(
         source=effective_source,
         destination=effective_dest,
         action=effective_action,
+        link_kind=link_kind,
         template=effective_template,
         dry_run=effective_dry_run,
         recursive=effective_recursive,
@@ -155,7 +179,7 @@ def run(
         exclude_extensions=config.normalized_exclude_extensions(),
     )
 
-    organizer = MediaOrganizer(config=config)
+    organizer = MediaOrganizer(config=config, show_progress=show_progress)
     files = list(iter_media_files(config.source, scan_options))
 
     if not files:
@@ -337,6 +361,7 @@ def duplicates(
     exclude_ext: Optional[List[str]] = typer.Option(None, "--exclude-ext", help="Extensiones a excluir."),
     algorithm: str = typer.Option("blake2b", "--algorithm", help="Algoritmo de hash: blake2b|sha256|md5."),
     min_size: int = typer.Option(1, "--min-size", help="Ignora archivos más pequeños que este valor (bytes)."),
+    prefer_under: Optional[Path] = typer.Option(None, "--prefer-under", help="Directorio preferido al elegir el canónico."),
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="Archivo JSON con el reporte de duplicados."),
     action: Optional[str] = typer.Option(None, "--action", help="Acción sobre duplicados: move|link|delete."),
     quarantine: Optional[Path] = typer.Option(None, "--quarantine", help="Directorio destino para --action move."),
@@ -344,9 +369,13 @@ def duplicates(
     dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Simula acciones sin modificar archivos."),
     max_groups: Optional[int] = typer.Option(None, "--max-groups", help="Limita la cantidad de grupos mostrados en consola."),
     log_level: str = typer.Option("INFO", "--log-level", help="Nivel de logging (DEBUG, INFO, WARNING, ERROR)."),
+    quiet: bool = typer.Option(False, "--quiet/--no-quiet", help="Suprime mensajes de consola; solo errores críticos."),
+    verbose: bool = typer.Option(False, "--verbose/--no-verbose", help="Activa logging DEBUG."),
+    json_logs: bool = typer.Option(False, "--json-logs/--no-json-logs", help="Emite logs como JSON Lines (desactiva Rich)."),
 ) -> None:
     """Detecta archivos duplicados exactos (byte-a-byte) en la fuente indicada."""
-    _setup_logging(log_level)
+    setup_logging(log_level, quiet=quiet, verbose=verbose, json_logs=json_logs)
+    show_progress = not (quiet or json_logs)
 
     # Validate options early.
     algorithm = algorithm.lower()
@@ -396,18 +425,22 @@ def duplicates(
         raise typer.Exit(code=0)
 
     console.print(f"Analizando {len(files)} archivos en busca de duplicados...")
-    metadata_items, errors = _collect_metadata(files)
+    metadata_items, errors = _collect_metadata(files, show_progress=show_progress)
     if errors:
         console.print(
             f"[yellow]Se omitieron {len(errors)} archivos por errores de metadatos.[/yellow]"
         )
 
     try:
-        analyzer = DuplicateAnalyzer(algorithm=algorithm, min_size=min_size)
+        analyzer = DuplicateAnalyzer(
+            algorithm=algorithm,
+            min_size=min_size,
+            prefer_under=prefer_under,
+        )
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_name="algorithm") from exc
 
-    report = analyzer.analyze(metadata_items)
+    report = analyzer.analyze(metadata_items, show_progress=show_progress)
     _render_duplicates_report(report, max_groups=max_groups)
 
     if output:
@@ -425,6 +458,7 @@ def duplicates(
                 relative_to=source,
                 link_kind=link_kind,  # type: ignore[arg-type]
                 dry_run=dry_run,
+                show_progress=show_progress,
             )
         except DuplicateActionError as exc:
             console.print(f"[red]Error de configuración: {exc}[/red]")

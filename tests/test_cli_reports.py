@@ -35,7 +35,7 @@ def test_duplicates_command_shows_groups(tmp_path, monkeypatch):
         def __init__(self, **kwargs):
             pass
 
-        def analyze(self, items):
+        def analyze(self, items, **kwargs):
             group = DuplicateGroup(
                 digest="abc123def456",
                 size=12,
@@ -84,7 +84,7 @@ def test_duplicates_command_exports_json(tmp_path, monkeypatch):
         def __init__(self, **kwargs):
             pass
 
-        def analyze(self, items):
+        def analyze(self, items, **kwargs):
             group = DuplicateGroup(
                 digest="deadbeef0000",
                 size=3,

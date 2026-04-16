@@ -138,7 +138,7 @@ VIDEO_EXTENSIONS = {
     ".insv",
 }
 
-PANORAMIC_360_EXTENSIONS = {".insp", ".insv", ".dng"}
+PANORAMIC_360_EXTENSIONS = {".insp", ".insv"}
 
 AUDIO_EXTENSIONS = {
     ".mp3",
@@ -714,6 +714,10 @@ def _parse_timestamp_from_filename(value: str) -> Optional[datetime]:
                 second = int(match.group("second"))
             except (KeyError, ValueError, TypeError):
                 continue
+
+        current_year = datetime.now().year
+        if not (1970 <= year <= current_year + 1):
+            continue
 
         try:
             naive = datetime(year, month, day, hour, minute, second)

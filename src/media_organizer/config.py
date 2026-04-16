@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, Literal, Optional
 
 import yaml
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from .templates import DEFAULT_TEMPLATES
 
@@ -148,6 +148,7 @@ class OrganizerConfig(BaseModel):
     source: Path
     destination: Path
     action: Literal["move", "copy", "link"] = "move"
+    link_kind: Literal["hard", "symbolic"] = "symbolic"
     template: str = "default"
     dry_run: bool = False
     recursive: bool = True
@@ -160,7 +161,8 @@ class OrganizerConfig(BaseModel):
     # Per-routing-key filename renaming overrides
     routing_filename_templates: dict[str, str] = Field(default_factory=dict)
 
-    @validator("source", "destination", pre=True)
+    @field_validator("source", "destination", mode="before")
+    @classmethod
     def _expand_path(cls, value: object) -> Path:
         if isinstance(value, Path):
             return value.expanduser()
@@ -168,7 +170,8 @@ class OrganizerConfig(BaseModel):
             return Path(value).expanduser()
         raise TypeError("Las rutas deben ser cadenas o instancias de Path.")
 
-    @validator("template")
+    @field_validator("template")
+    @classmethod
     def _validate_template(cls, value: str) -> str:
         if not value:
             raise ValueError("El template no puede estar vacío.")
@@ -228,7 +231,12 @@ def load_run_config(path: Path) -> dict:
         return {}
 
     with path.open("r", encoding="utf-8") as handle:
-        raw = yaml.safe_load(handle) or {}
+        try:
+            raw = yaml.safe_load(handle) or {}
+        except yaml.YAMLError as exc:
+            raise ValueError(
+                f"Error al leer el archivo de configuración '{path}': {exc}"
+            ) from exc
 
     config: dict = {}
 

@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Sequence, Tuple
 
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TimeElapsedColumn
+
 from .lens_pairing import deduplicate_assets
 from .metadata import MediaMetadata
 
@@ -71,19 +73,38 @@ def _group_by_size(items: Sequence[MediaMetadata]) -> Dict[int, List[MediaMetada
     return groups
 
 
-def _pick_canonical(files: List[MediaMetadata]) -> MediaMetadata:
+def _pick_canonical(
+    files: List[MediaMetadata],
+    prefer_under: Optional[Path] = None,
+) -> MediaMetadata:
     """Choose the canonical representative from a duplicate group.
 
     Selection policy (applied in order):
-    1. Shortest string representation of ``source_path`` — heuristic for
-       "original lives in the shallowest folder".
-    2. Earliest ``captured_at`` timestamp — oldest capture date wins.
-    3. Lexicographic order of ``source_path`` — deterministic tiebreaker.
+    1. Files under *prefer_under* win (if given) — treats that directory as
+       the authoritative source, so copies outside it are the duplicates.
+    2. Oldest mtime — the file modified least recently is most likely the
+       original.  This avoids mistakenly deleting the source when a copy in a
+       shorter path exists.
+    3. Lexicographic path — deterministic tiebreaker.
     """
-    return min(
-        files,
-        key=lambda m: (len(str(m.source_path)), m.captured_at, str(m.source_path)),
-    )
+    def _sort_key(m: MediaMetadata) -> tuple:
+        if prefer_under is not None:
+            try:
+                m.source_path.relative_to(prefer_under)
+                preferred = 0
+            except ValueError:
+                preferred = 1
+        else:
+            preferred = 0
+
+        try:
+            mtime = os.stat(m.source_path).st_mtime
+        except OSError:
+            mtime = float("inf")
+
+        return (preferred, mtime, str(m.source_path))
+
+    return min(files, key=_sort_key)
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +192,7 @@ class DuplicateAnalyzer:
         algorithm: str = "blake2b",
         chunk_size: int = 1 << 20,  # 1 MiB
         min_size: int = 1,
+        prefer_under: Optional[Path] = None,
     ) -> None:
         if algorithm not in _VALID_ALGORITHMS:
             raise ValueError(
@@ -184,8 +206,9 @@ class DuplicateAnalyzer:
         self.algorithm = algorithm
         self.chunk_size = chunk_size
         self.min_size = min_size
+        self.prefer_under = prefer_under
 
-    def analyze(self, items: Sequence[MediaMetadata]) -> DuplicatesReport:
+    def analyze(self, items: Sequence[MediaMetadata], *, show_progress: bool = True) -> DuplicatesReport:
         """Scan *items* and return a report with groups of byte-identical files."""
         scanned = len(items)
 
@@ -221,14 +244,26 @@ class DuplicateAnalyzer:
         processed = 0
         hashed_bytes = 0
 
-        for item, size in candidates:
-            digest, nbytes = _hash_file(item.source_path, self.algorithm, self.chunk_size)
-            if digest is None:
-                skipped += 1
-                continue
-            processed += 1
-            hashed_bytes += nbytes
-            hash_groups.setdefault((size, digest), []).append(item)
+        with Progress(
+            SpinnerColumn(),
+            "[progress.description]{task.description}",
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            disable=not show_progress,
+        ) as progress:
+            task = progress.add_task(
+                "Calculando hashes...", total=len(candidates)
+            )
+            for item, size in candidates:
+                digest, nbytes = _hash_file(item.source_path, self.algorithm, self.chunk_size)
+                progress.advance(task)
+                if digest is None:
+                    skipped += 1
+                    continue
+                processed += 1
+                hashed_bytes += nbytes
+                hash_groups.setdefault((size, digest), []).append(item)
 
         logger.debug(
             "Fase 2 completada: %d archivos hasheados, %d bytes leídos.",
@@ -244,7 +279,7 @@ class DuplicateAnalyzer:
         ):
             if len(members) < 2:
                 continue
-            canonical_meta = _pick_canonical(members)
+            canonical_meta = _pick_canonical(members, prefer_under=self.prefer_under)
             canonical = DuplicateFile(metadata=canonical_meta, size=size)
             dups = [
                 DuplicateFile(metadata=m, size=size)
@@ -299,6 +334,7 @@ def apply_duplicate_actions(
     relative_to: Optional[Path] = None,
     link_kind: Literal["hard", "symbolic"] = "hard",
     dry_run: bool = True,
+    show_progress: bool = True,
 ) -> List[ActionOutcome]:
     """Apply *action* to all non-canonical files in *report*.
 
@@ -332,79 +368,92 @@ def apply_duplicate_actions(
             f"link_kind no válido: '{link_kind}'. Usa 'hard' o 'symbolic'."
         )
 
+    total_dups = sum(len(g.duplicates) for g in report.groups)
     outcomes: List[ActionOutcome] = []
 
-    for group in report.groups:
-        canonical_path = group.canonical.metadata.source_path
+    with Progress(
+        SpinnerColumn(),
+        "[progress.description]{task.description}",
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        disable=not show_progress,
+    ) as prog:
+        task = prog.add_task(f"Aplicando acción '{action}'...", total=total_dups)
+        for group in report.groups:
+            canonical_path = group.canonical.metadata.source_path
+            for dup_file in group.duplicates:
+                src = dup_file.metadata.source_path
 
-        for dup_file in group.duplicates:
-            src = dup_file.metadata.source_path
-
-            if action == "move":
-                assert quarantine is not None  # guarded above
-                base = relative_to or src.parent
-                try:
-                    rel = src.relative_to(base)
-                except ValueError:
-                    rel = Path(src.name)
-                dest = quarantine / rel
-
-                if not dry_run:
+                if action == "move":
+                    assert quarantine is not None  # guarded above
+                    base = relative_to or src.parent
                     try:
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.move(str(src), str(dest))
-                    except OSError as exc:
-                        outcomes.append(
-                            ActionOutcome(
-                                source=src, destination=dest,
-                                action="move", dry_run=False, error=str(exc),
-                            )
-                        )
-                        continue
-                outcomes.append(
-                    ActionOutcome(source=src, destination=dest, action="move", dry_run=dry_run)
-                )
+                        rel = src.relative_to(base)
+                    except ValueError:
+                        rel = Path(src.name)
+                    dest = quarantine / rel
 
-            elif action == "link":
-                dest = canonical_path
-                if not dry_run:
-                    # Atomic replacement: create new link at a temp path, then
-                    # rename it over src.  This way src is never left deleted
-                    # if the link creation fails.
-                    tmp = src.with_name(src.name + ".dedup_tmp")
-                    try:
-                        if link_kind == "hard":
-                            tmp.hardlink_to(canonical_path)
-                        else:
-                            tmp.symlink_to(canonical_path)
-                        tmp.replace(src)
-                    except OSError as exc:
-                        tmp.unlink(missing_ok=True)
-                        outcomes.append(
-                            ActionOutcome(
-                                source=src, destination=dest,
-                                action="link", dry_run=False, error=str(exc),
+                    if not dry_run:
+                        try:
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.move(str(src), str(dest))
+                        except OSError as exc:
+                            outcomes.append(
+                                ActionOutcome(
+                                    source=src, destination=dest,
+                                    action="move", dry_run=False, error=str(exc),
+                                )
                             )
-                        )
-                        continue
-                outcomes.append(
-                    ActionOutcome(source=src, destination=dest, action="link", dry_run=dry_run)
-                )
+                            prog.advance(task)
+                            continue
+                    outcomes.append(
+                        ActionOutcome(source=src, destination=dest, action="move", dry_run=dry_run)
+                    )
 
-            elif action == "delete":
-                if not dry_run:
-                    try:
-                        src.unlink()
-                    except OSError as exc:
-                        outcomes.append(
-                            ActionOutcome(
-                                source=src, destination=None,
-                                action="delete", dry_run=False, error=str(exc),
+                elif action == "link":
+                    dest = canonical_path
+                    if not dry_run:
+                        # Atomic replacement: create new link at a temp path, then
+                        # rename it over src so src is never left deleted on failure.
+                        tmp = src.with_name(src.name + ".dedup_tmp")
+                        try:
+                            if link_kind == "hard":
+                                tmp.hardlink_to(canonical_path)
+                            else:
+                                tmp.symlink_to(canonical_path)
+                            tmp.replace(src)
+                        except OSError as exc:
+                            tmp.unlink(missing_ok=True)
+                            outcomes.append(
+                                ActionOutcome(
+                                    source=src, destination=dest,
+                                    action="link", dry_run=False, error=str(exc),
+                                )
                             )
-                        )
-                        continue
-                outcomes.append(
-                    ActionOutcome(source=src, destination=None, action="delete", dry_run=dry_run)
-                )
+                            prog.advance(task)
+                            continue
+                    outcomes.append(
+                        ActionOutcome(source=src, destination=dest, action="link", dry_run=dry_run)
+                    )
+
+                elif action == "delete":
+                    if not dry_run:
+                        try:
+                            src.unlink()
+                        except OSError as exc:
+                            outcomes.append(
+                                ActionOutcome(
+                                    source=src, destination=None,
+                                    action="delete", dry_run=False, error=str(exc),
+                                )
+                            )
+                            prog.advance(task)
+                            continue
+                    outcomes.append(
+                        ActionOutcome(source=src, destination=None, action="delete", dry_run=dry_run)
+                    )
+
+                prog.advance(task)
 
     return outcomes

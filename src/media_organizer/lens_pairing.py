@@ -50,8 +50,7 @@ def group_by_asset(items: Sequence[MediaMetadata]) -> list[list[MediaMetadata]]:
     pair pattern each form a single-element list. Input order is preserved
     for the first occurrence of each group.
     """
-    grouped: dict[str, list[MediaMetadata]] = defaultdict(list)
-    order: list[str] = []
+    paired: dict[str, list[MediaMetadata]] = defaultdict(list)
     singles: list[MediaMetadata] = []
 
     for item in items:
@@ -59,19 +58,20 @@ def group_by_asset(items: Sequence[MediaMetadata]) -> list[list[MediaMetadata]]:
         if key is None:
             singles.append(item)
         else:
-            if key not in grouped:
-                order.append(key)
-            grouped[key].append(item)
+            paired[key].append(item)
 
     result: list[list[MediaMetadata]] = []
-    seen_singles = 0
+    singles_idx = 0
+    added_pairs: set[str] = set()
+
     for item in items:
         key = pair_key(item)
         if key is None:
-            result.append([singles[seen_singles]])
-            seen_singles += 1
-        elif key in grouped:
-            result.append(grouped.pop(key))
+            result.append([singles[singles_idx]])
+            singles_idx += 1
+        elif key not in added_pairs:
+            result.append(list(paired[key]))
+            added_pairs.add(key)
 
     return result
 

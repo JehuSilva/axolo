@@ -105,22 +105,42 @@ def test_size_prefilter_skips_hashing_for_unique_sizes(tmp_path):
     assert len(report.groups) == 0
 
 
-def test_canonical_selection_prefers_shorter_path(tmp_path):
-    """The file with the shorter path string is chosen as canonical."""
+def test_canonical_selection_prefers_older_mtime(tmp_path):
+    """The file with the older mtime is chosen as canonical (original)."""
+    import time
+
     content = b"same content"
+    original = tmp_path / "original.jpg"
+    copy = tmp_path / "copy.jpg"
 
-    deep = tmp_path / "a" / "long" / "path" / "photo.jpg"
-    shallow = tmp_path / "photo.jpg"
+    original.write_bytes(content)
+    time.sleep(0.02)  # ensure different mtime
+    copy.write_bytes(content)
 
-    deep.parent.mkdir(parents=True)
-    deep.write_bytes(content)
-    shallow.write_bytes(content)
-
-    items = [_metadata(deep), _metadata(shallow)]
+    items = [_metadata(copy), _metadata(original)]  # copy comes first
     report = DuplicateAnalyzer().analyze(items)
 
     assert len(report.groups) == 1
-    assert report.groups[0].canonical.metadata.source_path == shallow
+    assert report.groups[0].canonical.metadata.source_path == original
+
+
+def test_canonical_selection_prefer_under(tmp_path):
+    """Files under --prefer-under are chosen as canonical even when copied elsewhere."""
+    content = b"same content"
+    primary = tmp_path / "primary" / "photo.jpg"
+    backup = tmp_path / "backup" / "photo.jpg"
+
+    primary.parent.mkdir()
+    backup.parent.mkdir()
+    primary.write_bytes(content)
+    backup.write_bytes(content)
+
+    analyzer = DuplicateAnalyzer(prefer_under=tmp_path / "primary")
+    items = [_metadata(backup), _metadata(primary)]
+    report = analyzer.analyze(items)
+
+    assert len(report.groups) == 1
+    assert report.groups[0].canonical.metadata.source_path == primary
 
 
 def test_insta360_lens_pair_not_reported_as_duplicate(tmp_path):
