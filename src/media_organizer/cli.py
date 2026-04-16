@@ -14,6 +14,13 @@ from rich.table import Table
 
 from .clustering import ClusterParameters, ClusterSummary, PhotoClusterer
 from .config import BUILTIN_PROFILES, OrganizerConfig, load_run_config
+from .duplicates import (
+    ActionOutcome,
+    DuplicateActionError,
+    DuplicateAnalyzer,
+    DuplicatesReport,
+    apply_duplicate_actions,
+)
 from .media_scanner import ScanOptions, iter_media_files
 from .metadata import MediaMetadata, extract_metadata
 from .organizer import MediaOrganizer, OrganizeSummary
@@ -625,3 +632,208 @@ def _export_timeline_chart(report: TimelineReport, chart_path: Path) -> None:
 """
     with chart_path.open("w", encoding="utf-8") as handle:
         handle.write(html)
+
+
+# ---------------------------------------------------------------------------
+# duplicates command
+# ---------------------------------------------------------------------------
+
+
+def _humanize_bytes(n: int) -> str:
+    """Return a human-readable representation of *n* bytes."""
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(n) < 1024:
+            return f"{n:.1f} {unit}"
+        n //= 1024
+    return f"{n:.1f} PB"
+
+
+def _render_duplicates_report(report: DuplicatesReport, max_groups: Optional[int] = None) -> None:
+    if report.processed == 0:
+        console.print("[yellow]No se procesaron archivos para comparar.[/yellow]")
+        return
+
+    total_groups = len(report.groups)
+    display_groups = report.groups
+    truncated = False
+    if max_groups is not None and total_groups > max_groups:
+        display_groups = report.groups[:max_groups]
+        truncated = True
+
+    if display_groups:
+        table = Table(title="Archivos duplicados detectados")
+        table.add_column("#", style="magenta", justify="right")
+        table.add_column("Canónico", style="cyan")
+        table.add_column("Duplicado", style="yellow")
+        table.add_column("Tamaño", style="green", justify="right")
+        table.add_column("Hash", style="white")
+        table.add_column("Recuperable", style="red", justify="right")
+
+        for idx, group in enumerate(display_groups, start=1):
+            canonical_str = str(group.canonical.metadata.source_path)
+            size_str = _humanize_bytes(group.size)
+            rec_str = _humanize_bytes(group.reclaimable_bytes)
+            digest_short = group.digest[:12]
+
+            for dup_idx, dup in enumerate(group.duplicates):
+                table.add_row(
+                    str(idx) if dup_idx == 0 else "",
+                    canonical_str if dup_idx == 0 else "",
+                    str(dup.metadata.source_path),
+                    size_str if dup_idx == 0 else "",
+                    digest_short if dup_idx == 0 else "",
+                    rec_str if dup_idx == 0 else "",
+                )
+
+        console.print(table)
+    else:
+        console.print("[green]No se encontraron archivos duplicados.[/green]")
+
+    console.print(
+        f"[blue]Escaneados:[/blue] {report.scanned}  "
+        f"[blue]Hasheados:[/blue] {report.processed}  "
+        f"[blue]Grupos:[/blue] {total_groups}  "
+        f"[blue]Recuperable:[/blue] {_humanize_bytes(report.reclaimable_bytes)}  "
+        f"[blue]Algoritmo:[/blue] {report.algorithm}"
+    )
+    if truncated:
+        console.print(
+            f"[yellow]Se muestran solo los primeros {max_groups} grupos. "
+            f"Usa --max-groups para ajustar el límite.[/yellow]"
+        )
+
+
+def _render_action_outcomes(outcomes: List[ActionOutcome], dry_run: bool) -> None:
+    if not outcomes:
+        return
+
+    if dry_run:
+        console.print("[yellow]Dry run — ningún archivo ha sido modificado.[/yellow]")
+
+    table = Table(title="Acciones sobre duplicados")
+    table.add_column("Acción", style="magenta")
+    table.add_column("Origen", style="cyan")
+    table.add_column("Destino / Canónico", style="green")
+    table.add_column("Estado", style="white")
+
+    for outcome in outcomes:
+        action_label = outcome.action.upper()
+        dest_str = str(outcome.destination) if outcome.destination else "—"
+        if outcome.error:
+            status = f"[red]ERROR: {outcome.error}[/red]"
+        elif outcome.dry_run:
+            status = "[yellow]dry-run[/yellow]"
+        else:
+            status = "[green]OK[/green]"
+        table.add_row(action_label, str(outcome.source), dest_str, status)
+
+    console.print(table)
+
+    errors = [o for o in outcomes if o.error]
+    if errors:
+        console.print(f"[red]{len(errors)} error(es) durante la ejecución de acciones.[/red]")
+
+
+@app.command()
+def duplicates(
+    source: Path = typer.Option(..., "--source", "-s", help="Directorio con archivos multimedia a analizar."),
+    recursive: bool = typer.Option(True, "--recursive/--no-recursive", help="Buscar archivos de forma recursiva."),
+    follow_symlinks: bool = typer.Option(False, "--follow-symlinks", help="Seguir enlaces simbólicos."),
+    include_ext: Optional[List[str]] = typer.Option(None, "--include-ext", help="Extensiones permitidas."),
+    exclude_ext: Optional[List[str]] = typer.Option(None, "--exclude-ext", help="Extensiones a excluir."),
+    algorithm: str = typer.Option("blake2b", "--algorithm", help="Algoritmo de hash: blake2b|sha256|md5."),
+    min_size: int = typer.Option(1, "--min-size", help="Ignora archivos más pequeños que este valor (bytes)."),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Archivo JSON con el reporte de duplicados."),
+    action: Optional[str] = typer.Option(None, "--action", help="Acción sobre duplicados: move|link|delete."),
+    quarantine: Optional[Path] = typer.Option(None, "--quarantine", help="Directorio destino para --action move."),
+    link_kind: str = typer.Option("hard", "--link-kind", help="Tipo de enlace para --action link: hard|symbolic."),
+    dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Simula acciones sin modificar archivos."),
+    max_groups: Optional[int] = typer.Option(None, "--max-groups", help="Limita la cantidad de grupos mostrados en consola."),
+    log_level: str = typer.Option("INFO", "--log-level", help="Nivel de logging (DEBUG, INFO, WARNING, ERROR)."),
+) -> None:
+    """Detecta archivos duplicados exactos (byte-a-byte) en la fuente indicada."""
+    _setup_logging(log_level)
+
+    # Validate options early.
+    algorithm = algorithm.lower()
+    if algorithm not in {"blake2b", "sha256", "md5"}:
+        raise typer.BadParameter(
+            "Algoritmo no soportado. Usa blake2b, sha256 o md5.", param_name="algorithm"
+        )
+    if min_size < 0:
+        raise typer.BadParameter("min-size no puede ser negativo.", param_name="min-size")
+    if max_groups is not None and max_groups <= 0:
+        raise typer.BadParameter("max-groups debe ser mayor que 0.", param_name="max-groups")
+
+    valid_actions = {"move", "link", "delete"}
+    if action is not None:
+        action = action.lower()
+        if action not in valid_actions:
+            raise typer.BadParameter(
+                "Acción no soportada. Usa move, link o delete.", param_name="action"
+            )
+        if action == "move" and quarantine is None:
+            raise typer.BadParameter(
+                "--quarantine es obligatorio cuando se usa --action move.", param_name="quarantine"
+            )
+
+    link_kind = link_kind.lower()
+    if link_kind not in {"hard", "symbolic"}:
+        raise typer.BadParameter(
+            "link-kind no válido. Usa 'hard' o 'symbolic'.", param_name="link-kind"
+        )
+
+    scan_options = ScanOptions(
+        recursive=recursive,
+        follow_symlinks=follow_symlinks,
+        include_extensions={
+            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
+            for ext in (include_ext or [])
+        },
+        exclude_extensions={
+            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
+            for ext in (exclude_ext or [])
+        },
+    )
+
+    files = list(iter_media_files(source, scan_options))
+    if not files:
+        console.print("[yellow]No se encontraron archivos para analizar.[/yellow]")
+        raise typer.Exit(code=0)
+
+    console.print(f"Analizando {len(files)} archivos en busca de duplicados...")
+    metadata_items, errors = _collect_metadata(files)
+    if errors:
+        console.print(
+            f"[yellow]Se omitieron {len(errors)} archivos por errores de metadatos.[/yellow]"
+        )
+
+    try:
+        analyzer = DuplicateAnalyzer(algorithm=algorithm, min_size=min_size)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_name="algorithm") from exc
+
+    report = analyzer.analyze(metadata_items)
+    _render_duplicates_report(report, max_groups=max_groups)
+
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("w", encoding="utf-8") as handle:
+            json.dump(report.to_dict(), handle, ensure_ascii=False, indent=2)
+        console.print(f"[green]Reporte guardado en {output}[/green]")
+
+    if action:
+        try:
+            outcomes = apply_duplicate_actions(
+                report,
+                action,  # type: ignore[arg-type]
+                quarantine=quarantine,
+                relative_to=source,
+                link_kind=link_kind,  # type: ignore[arg-type]
+                dry_run=dry_run,
+            )
+        except DuplicateActionError as exc:
+            console.print(f"[red]Error de configuración: {exc}[/red]")
+            raise typer.Exit(code=1) from exc
+
+        _render_action_outcomes(outcomes, dry_run=dry_run)

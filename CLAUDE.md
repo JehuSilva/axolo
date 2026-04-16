@@ -32,6 +32,8 @@ media-organizer run --source ~/Media --destination /mnt/organized --dry-run
 media-organizer cluster --source ~/Media --time-window 120 --min-samples 3 --dry-run
 media-organizer similars --source ~/Media --threshold 5 --output similitudes.json
 media-organizer timeline --source ~/Media --granularity month
+media-organizer duplicates --source ~/Media --algorithm blake2b --output duplicates.json
+media-organizer duplicates --source ~/Media --action move --quarantine ~/Media/_duplicados --dry-run
 ```
 
 ## Architecture
@@ -51,6 +53,7 @@ The package lives under `src/media_organizer/` and is installed as the `media-or
 - `clustering.py` — `PhotoClusterer` uses DBSCAN (scikit-learn) on timestamps converted to minutes to suggest album groups. `ClusterParameters` controls `time_window_minutes` (eps) and `min_samples`.
 - `similarity.py` — `SimilarityAnalyzer` computes perceptual hashes (ImageHash library) for images and finds pairs within a Hamming distance threshold.
 - `timeline.py` — `TimelineAnalyzer` buckets `MediaMetadata` timestamps by hour/day/week/month/year for a capture frequency report. Can export CSV/JSON/TSV and generate a Chart.js HTML chart.
+- `duplicates.py` — `DuplicateAnalyzer` groups files by size then hashes (`blake2b` by default) to detect byte-identical copies across all media types. Supports optional actions (`move`/`link`/`delete`) via `apply_duplicate_actions`; `--dry-run` is on by default. Reports `reclaimable_bytes` per group.
 
 **Configuration:**
 - `config.py` — `OrganizerConfig` (Pydantic v2) holds runtime config. `TemplateProfile` allows named templates loaded from a YAML file (`--profiles-path`). Custom profiles follow the schema in `profiles.sample.yaml`.
