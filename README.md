@@ -6,7 +6,7 @@ Automatic organizer for photos, videos, audio and documents with configurable de
 
 - Extrae metadatos (EXIF, ID3, PDF, Office) para ordenar archivos multimedia y documentos.
 - Clasifica automáticamente en categorías (`Fotos y Videos`, `Musica`, `Documentos`, `Otros`).
-- Dentro de cada categoría organiza por año/mes (personalizable mediante plantillas).
+- Dentro de cada categoría organiza por subcarpeta (Fotos/, Videos/, 360/…) y luego por año/mes (personalizable mediante plantillas).
 - Agrupa fotografías y videos en eventos sugeridos mediante clustering temporal configurable.
 - Identifica fotografías potencialmente duplicadas usando hashing perceptual.
 - Visualiza la cantidad de capturas por periodo (hora, día, semana, mes o año) sin mover archivos.
@@ -14,7 +14,6 @@ Automatic organizer for photos, videos, audio and documents with configurable de
 - Soporte para HEIC mediante `pillow-heif` y compatibilidad ampliada con videos (ffprobe y tags DJI).
 - Soporte nativo para cámaras 360° (Insta360 X3): formatos `.insp`, `.insv` y `.dng`; archivos 360 se ubican en `Fotos_y_Videos/360/`; los pares de lentes (`_00_`/`_10_`) se agrupan como un solo asset en los reportes.
 - Archivos sin fecha confiable se ubican automáticamente en `unknown_date/` dentro de su categoría.
-- Empaquetado multiplataforma mediante PyInstaller (scripts incluidos posteriormente).
 
 ## Requisitos
 
@@ -22,53 +21,195 @@ Automatic organizer for photos, videos, audio and documents with configurable de
 - [FFmpeg](https://ffmpeg.org/) instalado y disponible en el `PATH` para extraer metadatos de video/audio.
 - Las dependencias se instalan con `pip install -e .` e incluyen `mutagen` (audio) y `pypdf` (PDF).
 
-## Uso rápido
+## Instalación
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # En Windows: .venv\Scripts\activate
-pip install -e .
-media-organizer run --source /ruta/origen --destination /ruta/destino --dry-run
+source .venv/bin/activate   # En Windows: .venv\Scripts\activate
+pip install -e ".[dev]"     # incluye dependencias de desarrollo y pruebas
 ```
 
-### CLI
+## Configuración (`config.yaml`)
 
-- `run` organiza físicamente los archivos según la plantilla configurada.
+El método recomendado es definir la configuración de ejecución en un archivo YAML. Copia el ejemplo incluido y ajústalo:
+
+```bash
+cp profiles.sample.yaml config.yaml
+```
+
+Estructura mínima:
+
+```yaml
+source: ~/Media
+destination: /mnt/organizado
+action: copy          # move | copy | link
+dry_run: false
+recursive: true
+follow_symlinks: false
+```
+
+### Perfiles por categoría (`profiles:`)
+
+La sección `profiles:` del YAML controla qué template de carpeta (y opcionalmente de renombrado) aplica cada tipo de archivo. Las claves válidas son:
+
+| Clave | Descripción | Subcarpeta dentro de la categoría |
+|-------|-------------|-----------------------------------|
+| `fotos` | Fotos no panorámicas | `Fotos_y_Videos/Fotos/` |
+| `videos` | Videos no panorámicos | `Fotos_y_Videos/Videos/` |
+| `360-fotos` | Fotos panorámicas (.insp) | `Fotos_y_Videos/360/Fotos/` |
+| `360-videos` | Videos panorámicos (.insv) | `Fotos_y_Videos/360/Videos/` |
+| `musica` | Audio (también acepta `music`) | `Musica/` |
+| `documentos` | Documentos (también acepta `docs`) | `Documentos/` |
+| `otros` | Todo lo demás (también acepta `other`) | `Otros/` |
+
+Ejemplo completo con todos los perfiles:
+
+```yaml
+source: ~/Media
+destination: /mnt/organizado
+action: copy
+
+profiles:
+  - name: fotos
+    template: year_month_cap
+    # → Fotos_y_Videos/Fotos/2026/Abril/foto.jpg
+
+  - name: videos
+    template: year_month_cap
+    # → Fotos_y_Videos/Videos/2026/Abril/video.mp4
+
+  - name: 360-fotos
+    template: year_month_cap
+    # → Fotos_y_Videos/360/Fotos/2026/Abril/img.insp
+
+  - name: 360-videos
+    template: year_month_cap
+    # → Fotos_y_Videos/360/Videos/2026/Abril/vid.insv
+
+  - name: musica
+    template: music_genre
+    filename_template: "{music_artist} - {music_title}"
+    # → Musica/rock/the-beatles_let-it-be.mp3
+
+  - name: documentos
+    template: year_month_cap
+    # → Documentos/2026/Abril/contrato.pdf
+
+  - name: otros
+    template: year_month_name
+    # → Otros/2026/abril/archivo.zip
+
+dry_run: false
+recursive: true
+follow_symlinks: false
+```
+
+### Defaults por categoría (sin config YAML)
+
+Si no se especifica template para una categoría, se aplican estos valores por defecto:
+
+| Categoría | Default | Ejemplo de salida |
+|-----------|---------|-------------------|
+| Fotos | `{year}/{month_name_cap}` | `Fotos_y_Videos/Fotos/2026/Abril/foto.jpg` |
+| Videos | `{year}/{month_name_cap}` | `Fotos_y_Videos/Videos/2026/Abril/video.mp4` |
+| Fotos 360 | `{year}/{month_name_cap}` | `Fotos_y_Videos/360/Fotos/2026/Abril/img.insp` |
+| Videos 360 | `{year}/{month_name_cap}` | `Fotos_y_Videos/360/Videos/2026/Abril/vid.insv` |
+| Música | `{music_genre}/{music_artist}` + renombrado `Artista_Titulo` | `Musica/rock/the-beatles/the-beatles_let-it-be.mp3` |
+| Documentos | `{year}/{month_name_cap}` | `Documentos/2026/Abril/contrato.pdf` |
+| Otros | `{year}/{month_name}` | `Otros/2026/abril/archivo.zip` |
+
+## Uso rápido
+
+```bash
+# Con archivo de configuración
+media-organizer run --config config.yaml --dry-run
+
+# Sin archivo de configuración (el CLI solicita los campos faltantes)
+media-organizer run --source ~/Media --destination /mnt/organizado --dry-run
+
+# Sobreescribir configuración del YAML desde la línea de comandos
+media-organizer run --config config.yaml --dry-run --action copy
+```
+
+### Validar la configuración
+
+El flag `--dry-run` nunca modifica archivos. Úsalo para revisar el plan antes de ejecutar:
+
+```bash
+media-organizer run --config config.yaml --dry-run
+```
+
+La salida muestra una tabla con el archivo de origen, el destino calculado, la categoría y el estado. Comprueba que los destinos sean los esperados antes de quitar `--dry-run`.
+
+### CLI completo
+
+- `run` organiza físicamente los archivos según el template configurado.
 - `cluster` genera agrupaciones sugiriendo álbumes sin mover archivos.
 - `similars` detecta fotos parecidas o duplicadas mediante hashing perceptual.
 - `timeline` resume cuántas capturas hay por periodo y permite exportar la serie temporal.
-- `--profile` permite elegir un template predefinido (`default`, `year_month_day`, `year_month_name`, `camera`).
-- `--template` acepta un formato personalizado que se interpreta dentro de la categoría (p. ej. `"{year}/{month_name}"`).
-- `--extra clave=valor` agrega variables adicionales para usar en templates (requiere nombrarlas en el template).
+- `--config` ruta al archivo YAML de configuración (fuente, destino, acción y perfiles por categoría).
+- `--template` acepta un formato personalizado que se aplica como fallback a todas las categorías.
+- `--extra clave=valor` agrega variables adicionales para usar en templates (ej: `--extra evento=Boda2026`).
 - `--dry-run` muestra el plan sin mover archivos.
-- Al finalizar, se muestran tablas con el detalle de cada archivo, un resumen por estado y otro por categoría.
-- Placeholders adicionales disponibles: `{category}`, `{category_label}`, `{category_slug}`.
 
-Ejemplo:
+Los archivos que no tengan una fecha de captura confiable se agrupan en `unknown_date/` dentro de su categoría.
 
-```bash
-media-organizer \
-  run \
-  --source ~/Media \
-  --destination /mnt/organizado \
-  --profile year_month_name \
-  --dry-run
-```
+## Templates disponibles
 
-El ejemplo anterior generará rutas como:
+### Templates con nombre
 
-- `Fotos_y_Videos/2023/mayo/...`
-- `Musica/2020/julio/...`
-- `Documentos/2019/12/...`
-- `Otros/unknown_date/...`
+| Nombre | Patrón | Ejemplo |
+|--------|--------|---------|
+| `default` | `{year}/{month_name_cap}` | `2026/Abril` |
+| `year_month_cap` | `{year}/{month_name_cap}` | `2026/Abril` |
+| `year_month` | `{year}/{month:02d}` | `2026/04` |
+| `year_month_name` | `{year}/{month_name}` | `2026/abril` |
+| `year_month_name_day` | `{year}/{month_name_cap}/{month_name_cap} {day}` | `2026/Abril/Abril 15` |
+| `year_month_day` | `{year}/{month:02d}/{day:02d}` | `2026/04/15` |
+| `music_genre` | `{music_genre}` | `rock` |
+| `music_genre_artist` | `{music_genre}/{music_artist}` | `rock/the-beatles` |
+| `camera` | `{camera_make}/{camera_model}/{year}/{month:02d}` | `canon/eos-r5/2026/04` |
 
-Puedes añadir perfiles personalizados en un YAML (ver `profiles.sample.yaml`) y cargarlos con `--profiles-path`.
+### Perfiles built-in (con `--profile`)
 
-Los archivos que no tengan una fecha de captura confiable se agrupan en `unknown_date/` dentro de su categoría para que puedas revisarlos manualmente.
+| Nombre | Template | Descripción |
+|--------|----------|-------------|
+| `fotos-cronologico` | `{year}/{month_name_cap}/{month_name_cap} {day}` | Año, mes y día |
+| `fotos-compacto` | `{year}/{month:02d}/{day:02d}` | Carpetas numéricas |
+| `fotos-por-camara` | `{camera_make}/{camera_model}/{year}/{month:02d}` | Agrupado por cámara |
+| `musica` | `{music_genre}/{music_artist}` + `Artista_Titulo` | Género y artista |
+| `musica-con-album` | `{music_genre}/{music_artist}/{music_album}` | Con álbum |
+| `musica-por-artista` | `{music_artist}/{music_album}` | Sin género |
+| `documentos` | `{year}/{month:02d}` | Año y mes numérico |
+| `documentos-por-mes` | `{year}/{month_name_cap}` | Mes en español |
+| `eventos` | `{year}/{month:02d}/{evento}` | Requiere `--extra evento=NombreEvento` |
+
+### Placeholders disponibles
+
+| Placeholder | Descripción | Ejemplo |
+|-------------|-------------|---------|
+| `{year}` | Año de captura | `2026` |
+| `{month}` / `{month:02d}` | Mes numérico | `4` / `04` |
+| `{day}` / `{day:02d}` | Día numérico | `5` / `05` |
+| `{hour}`, `{minute}`, `{second}` | Hora de captura | `18`, `24`, `46` |
+| `{month_name}` | Nombre de mes (español, minúsculas) | `abril` |
+| `{month_name_short}` | Mes abreviado (español) | `abr` |
+| `{month_name_cap}` | Mes capitalizado (español) | `Abril` |
+| `{stem}` | Nombre de archivo sin extensión | `IMG_20260415` |
+| `{ext}` | Extensión sin punto | `jpg` |
+| `{camera_make}` | Marca de cámara (slug) | `canon` |
+| `{camera_model}` | Modelo de cámara (slug) | `eos-r5` |
+| `{music_artist}` | Artista (slug, desde ID3/Vorbis/MP4) | `the-beatles` |
+| `{music_title}` | Título de canción (slug) | `let-it-be` |
+| `{music_genre}` | Género musical (slug) | `rock` |
+| `{music_album}` | Álbum (slug) | `abbey-road` |
+| `{category}` | Nombre de carpeta de categoría | `Fotos_y_Videos` |
+| `{category_label}` | Etiqueta legible de categoría | `Fotos y Videos` |
+| `{category_slug}` | Slug de la categoría | `fotos-y-videos` |
+
+## Comandos de análisis
 
 ### Agrupamiento de álbumes
-
-Usa el comando `cluster` para detectar eventos antes de etiquetar o mover archivos. No se modifica ningún archivo; se trabaja únicamente con los metadatos.
 
 ```bash
 media-organizer cluster \
@@ -78,12 +219,9 @@ media-organizer cluster \
   --dry-run
 ```
 
-- `--time-window` controla la ventana temporal (en minutos) para considerar que dos fotos forman parte del mismo evento (se utiliza DBSCAN).
-- `--min-samples` define cuántos elementos mínimos debe tener un clúster.
-- `--output clusters.json` guarda el resultado en un archivo JSON (omitido en `--dry-run`).
-- `--show-noise` muestra en consola las fotos/vídeos que no han quedado dentro de ningún clúster.
-
-La salida en consola presenta una tabla con los clústeres detectados, el rango temporal, etiquetas sugeridas (por fechas y cámara predominante) y ejemplos de archivos. El JSON generado es ideal para consumirlo desde otras herramientas o para etiquetar posteriormente.
+- `--time-window` ventana temporal en minutos para considerar dos fotos parte del mismo evento (DBSCAN).
+- `--min-samples` mínimo de elementos para formar un clúster.
+- `--output clusters.json` guarda el resultado en JSON.
 
 ### Fotografías similares
 
@@ -95,10 +233,9 @@ media-organizer similars \
   --output similitudes.json
 ```
 
-- `--threshold` controla la distancia Hamming máxima entre hashes (menor = más estricta).
-- `--hash-size` ajusta la sensibilidad del hash perceptual (8–16 suelen funcionar bien).
-- `--method` permite elegir entre `phash`, `ahash`, `dhash` o `whash`.
-- `--max-pairs` limita los pares mostrados en consola; el JSON siempre contiene el total.
+- `--threshold` distancia Hamming máxima entre hashes (menor = más estricta).
+- `--hash-size` sensibilidad del hash perceptual (8–16 suelen funcionar bien).
+- `--method` elige entre `phash`, `ahash`, `dhash` o `whash`.
 
 ### Línea de tiempo de capturas
 
@@ -111,40 +248,30 @@ media-organizer timeline \
   --chart timeline.html
 ```
 
-- Las opciones de granularidad disponibles son `hour`, `day`, `week`, `month` y `year`.
-- Se pueden exportar los datos en JSON/CSV/TSV y generar un HTML con un gráfico interactivo (requiere acceso a CDN para Chart.js).
-- El gráfico y la tabla no modifican archivos originales; únicamente se basan en los metadatos detectados.
-
-## Notas sobre HEIC
-
-El paquete incluye `pillow-heif`. En caso de que la librería no esté disponible en tu entorno, el programa seguirá funcionando, pero los archivos HEIC se procesarán con capacidades reducidas.
-
-## Empaquetado
-
-Se recomiendan herramientas como PyInstaller o Briefcase para generar ejecutables nativos. Las recetas específicas se documentarán una vez integrado el flujo de build.
-
-Ejemplo básico con PyInstaller (desde un entorno virtual):
-
-```bash
-pyinstaller --name media-organizer --onefile -p src media_organizer/cli.py
-```
+- Granularidades disponibles: `hour`, `day`, `week`, `month`, `year`.
+- Exporta JSON/CSV/TSV y genera HTML con gráfico interactivo (Chart.js).
 
 ## Compatibilidad con cámaras 360 (Insta 360 X3)
-
-Los formatos propietarios de la Insta 360 X3 son reconocidos automáticamente:
 
 | Extensión | Tipo | Metadatos |
 |-----------|------|-----------|
 | `.insp` | Foto 360 (JPEG con datos 360 al final) | EXIF vía Pillow |
-| `.insv` | Video 360 (contenedor MP4) | QuickTime atoms + ffprobe si está disponible |
-| `.dng` | RAW (Adobe DNG) | Nombre de archivo como fallback (Pillow no soporta DNG nativamente) |
+| `.insv` | Video 360 (contenedor MP4) | QuickTime atoms + ffprobe |
+| `.dng` | RAW (Adobe DNG) — no 360 | Nombre de archivo como fallback |
 
-Los archivos `.insp` e `.insv` se organizan dentro de `Fotos_y_Videos/360/` en lugar de la raíz de esa categoría, manteniendo los archivos 360 separados del resto.
+Los archivos `.insp` e `.insv` se organizan dentro de `Fotos_y_Videos/360/` separados del resto.
 
-La cámara genera **pares de archivos por lente** para cada captura de video (sufijos `_00_` y `_10_`). Los comandos `cluster`, `similars` y `timeline` los cuentan como un único asset para evitar duplicados en los reportes. El comando `run` mueve o copia ambos archivos físicamente.
+La cámara genera **pares de archivos por lente** (`_00_` y `_10_`). Los comandos `cluster`, `similars` y `timeline` los cuentan como un único asset. El comando `run` mueve o copia ambos archivos físicamente.
+
+## Notas sobre HEIC
+
+El paquete incluye `pillow-heif`. Si no está disponible en tu entorno, los archivos HEIC se procesarán con capacidades reducidas.
 
 ## Pruebas
 
 ```bash
 pytest
+pytest tests/test_organizer.py -v          # solo un archivo
+pytest tests/test_organizer.py::test_media_organizer_resolves_collisions  # un test específico
+pytest --cov=media_organizer               # con cobertura
 ```

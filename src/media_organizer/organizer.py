@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-from .config import OrganizerConfig, TemplateProfile
+from .config import ROUTING_SUBFOLDERS, OrganizerConfig
 from .metadata import MediaCategory, MediaMetadata, MediaType, extract_metadata
-from .templates import render_template
+from .templates import render_filename, render_template
 
 logger = logging.getLogger(__name__)
 
@@ -75,14 +75,8 @@ class OrganizeSummary:
 
 
 class MediaOrganizer:
-    def __init__(
-        self,
-        config: OrganizerConfig,
-        profiles: Optional[dict[str, TemplateProfile]] = None,
-    ) -> None:
+    def __init__(self, config: OrganizerConfig) -> None:
         self.config = config
-        self.profiles = profiles or {}
-        self.template = config.resolve_template(self.profiles)
 
     def organize(self, files: Iterable[Path]) -> OrganizeSummary:
         summary = OrganizeSummary()
@@ -104,13 +98,31 @@ class MediaOrganizer:
             summary.add(result)
         return summary
 
-    def _resolve_destination(self, metadata: MediaMetadata) -> Path:
-        base_dir = self._category_root(metadata)
+    def _get_routing_key(self, metadata: MediaMetadata) -> str:
+        """Maps a file's metadata to its routing key."""
         if metadata.is_panoramic:
-            subtype = "Videos" if metadata.media_type == MediaType.VIDEO else "Fotos"
-            base_dir = base_dir / "360" / subtype
+            return "360-videos" if metadata.media_type == MediaType.VIDEO else "360-fotos"
+        if metadata.category == MediaCategory.PHOTOS_VIDEOS:
+            return "videos" if metadata.media_type == MediaType.VIDEO else "fotos"
+        if metadata.category == MediaCategory.MUSIC:
+            return "musica"
+        if metadata.category == MediaCategory.DOCUMENTS:
+            return "documentos"
+        return "otros"
+
+    def _resolve_destination(self, metadata: MediaMetadata) -> Path:
+        routing_key = self._get_routing_key(metadata)
+
+        # Build base directory: category root + routing subfolders
+        category_root = (self.config.destination / metadata.category.folder_name()).resolve()
+        base_dir = category_root
+        for subfolder in ROUTING_SUBFOLDERS.get(routing_key, ()):
+            base_dir = base_dir / subfolder
+
+        folder_template = self.config.resolve_template_for_routing_key(routing_key)
+
         if metadata.has_reliable_timestamp:
-            relative = render_template(metadata, self.template, self.config.extra)
+            relative = render_template(metadata, folder_template, self.config.extra)
             destination_dir = (base_dir / relative).resolve()
         else:
             destination_dir = (base_dir / "unknown_date").resolve()
@@ -120,18 +132,22 @@ class MediaOrganizer:
                 destination_dir,
             )
 
-        filename = metadata.source_path.name
+        filename_tmpl = self.config.resolve_filename_template_for_routing_key(routing_key)
+        if filename_tmpl:
+            filename = render_filename(metadata, filename_tmpl, self.config.extra)
+        else:
+            filename = metadata.source_path.name
+
+        stem = Path(filename).stem
+        suffix = Path(filename).suffix or metadata.suffix
         destination_dir.mkdir(parents=True, exist_ok=True)
 
         candidate = destination_dir / filename
         counter = 1
         while candidate.exists():
-            candidate = destination_dir / f"{metadata.stem}_{counter}{metadata.suffix}"
+            candidate = destination_dir / f"{stem}_{counter}{suffix}"
             counter += 1
         return candidate
-
-    def _category_root(self, metadata: MediaMetadata) -> Path:
-        return (self.config.destination / metadata.category.folder_name()).resolve()
 
     def _apply_action(self, metadata: MediaMetadata, destination: Path) -> FileResult:
         source = metadata.source_path

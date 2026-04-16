@@ -1,4 +1,6 @@
-profiles:
-  - name: eventos
-    template: "{year}/{month:02d}/{evento}"
-    description: "Agrupa por año/mes y evento."
+# Fixture de configuración de ejecución para tests
+source: /tmp/src_test
+destination: /tmp/dest_test
+action: copy
+profile: musica
+dry_run: true

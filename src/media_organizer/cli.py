@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .clustering import ClusterParameters, ClusterSummary, PhotoClusterer
-from .config import OrganizerConfig, load_template_profiles
+from .config import BUILTIN_PROFILES, OrganizerConfig, load_run_config
 from .media_scanner import ScanOptions, iter_media_files
 from .metadata import MediaMetadata, extract_metadata
 from .organizer import MediaOrganizer, OrganizeSummary
@@ -58,60 +58,90 @@ def _collect_metadata(paths: Iterable[Path]) -> Tuple[List[MediaMetadata], List[
 
 @app.command()
 def run(
-    source: Path = typer.Option(..., "--source", "-s", help="Directorio de origen a analizar."),
-    destination: Path = typer.Option(..., "--destination", "-d", help="Directorio de destino."),
-    profile: str = typer.Option("default", "--profile", "-p", help="Nombre del perfil de template a usar."),
+    source: Optional[Path] = typer.Option(None, "--source", "-s", help="Directorio de origen a analizar."),
+    destination: Optional[Path] = typer.Option(None, "--destination", "-d", help="Directorio de destino."),
+    config_path: Optional[Path] = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help="Archivo YAML de configuración de ejecución.",
+    ),
+    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Nombre del perfil a usar."),
     template: Optional[str] = typer.Option(None, "--template", help="Template personalizado (ignora --profile)."),
-    profiles_path: Optional[Path] = typer.Option(
-        None,
-        "--profiles-path",
-        help="Archivo YAML con perfiles adicionales.",
-    ),
-    action: str = typer.Option("move", "--action", "-a", help="Acción a aplicar sobre los archivos (move|copy|link)."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Muestra los cambios sin mover archivos."),
-    recursive: bool = typer.Option(True, "--recursive/--no-recursive", help="Buscar archivos de forma recursiva."),
-    follow_symlinks: bool = typer.Option(False, "--follow-symlinks", help="Seguir enlaces simbólicos."),
-    include_ext: Optional[List[str]] = typer.Option(
-        None,
-        "--include-ext",
-        help="Extensiones permitidas (puede repetirse).",
-    ),
-    exclude_ext: Optional[List[str]] = typer.Option(
-        None,
-        "--exclude-ext",
-        help="Extensiones a excluir (puede repetirse).",
-    ),
-    extra: Optional[List[str]] = typer.Option(
-        None,
-        "--extra",
-        help="Pares clave=valor para usar en el template.",
-    ),
+    action: Optional[str] = typer.Option(None, "--action", "-a", help="Acción sobre los archivos (move|copy|link)."),
+    dry_run: Optional[bool] = typer.Option(None, "--dry-run/--no-dry-run", help="Muestra los cambios sin mover archivos."),
+    recursive: Optional[bool] = typer.Option(None, "--recursive/--no-recursive", help="Buscar archivos de forma recursiva."),
+    follow_symlinks: Optional[bool] = typer.Option(None, "--follow-symlinks/--no-follow-symlinks", help="Seguir enlaces simbólicos."),
+    include_ext: Optional[List[str]] = typer.Option(None, "--include-ext", help="Extensiones permitidas (puede repetirse)."),
+    exclude_ext: Optional[List[str]] = typer.Option(None, "--exclude-ext", help="Extensiones a excluir (puede repetirse)."),
+    extra: Optional[List[str]] = typer.Option(None, "--extra", help="Pares clave=valor para usar en el template."),
     log_level: str = typer.Option("INFO", "--log-level", help="Nivel de logging (DEBUG, INFO, WARNING, ERROR)."),
 ) -> None:
     """Organiza archivos multimedia según el template configurado."""
     _setup_logging(log_level)
 
-    profiles = load_template_profiles(profiles_path) if profiles_path else {}
+    # Load base config from YAML file, then override with any CLI flags provided.
+    file_cfg = load_run_config(config_path) if config_path else {}
 
-    if profile not in DEFAULT_TEMPLATES and profile not in profiles:
-        raise typer.BadParameter(f"El perfil '{profile}' no está definido.")
+    effective_source = source or (Path(file_cfg["source"]).expanduser() if "source" in file_cfg else None)
+    effective_dest = destination or (Path(file_cfg["destination"]).expanduser() if "destination" in file_cfg else None)
 
-    template_value = template or profile
-    action = action.lower()
-    if action not in {"move", "copy", "link"}:
+    if effective_source is None:
+        effective_source = Path(
+            typer.prompt("Directorio de origen (source)")
+        ).expanduser()
+    if effective_dest is None:
+        effective_dest = Path(
+            typer.prompt("Directorio de destino (destination)")
+        ).expanduser()
+
+    raw_action = action or file_cfg.get("action") or typer.prompt(
+        "Acción a aplicar (move / copy / link)",
+        default="move",
+    )
+    effective_action = raw_action.lower()
+    if effective_action not in {"move", "copy", "link"}:
         raise typer.BadParameter("La acción debe ser move, copy o link.", param_name="action")
+
+    # Resolve template: CLI --template > CLI --profile > config file > prompt
+    if template:
+        effective_template = template
+    elif profile:
+        effective_template = profile
+    elif "template" in file_cfg:
+        effective_template = file_cfg["template"]
+    else:
+        available = sorted(set(DEFAULT_TEMPLATES) | set(BUILTIN_PROFILES))
+        console.print(f"[cyan]Perfiles disponibles:[/cyan] {', '.join(available)}")
+        effective_template = typer.prompt("Perfil o template a usar", default="default")
+
+    if effective_template not in DEFAULT_TEMPLATES and effective_template not in BUILTIN_PROFILES:
+        raise typer.BadParameter(
+            f"El perfil '{effective_template}' no está definido. "
+            f"Perfiles disponibles: {', '.join(sorted(BUILTIN_PROFILES))}",
+        )
+
+    effective_dry_run = dry_run if dry_run is not None else file_cfg.get("dry_run", False)
+    effective_recursive = recursive if recursive is not None else file_cfg.get("recursive", True)
+    effective_symlinks = follow_symlinks if follow_symlinks is not None else file_cfg.get("follow_symlinks", False)
+
     extra_values = _parse_extra(extra)
+    if not extra_values and "extra" in file_cfg:
+        extra_values = file_cfg["extra"]
+
+    effective_include = include_ext or file_cfg.get("include_extensions", [])
+    effective_exclude = exclude_ext or file_cfg.get("exclude_extensions", [])
 
     config = OrganizerConfig(
-        source=source,
-        destination=destination,
-        action=action,
-        template=template_value,
-        dry_run=dry_run,
-        recursive=recursive,
-        follow_symlinks=follow_symlinks,
-        include_extensions=include_ext or [],
-        exclude_extensions=exclude_ext or [],
+        source=effective_source,
+        destination=effective_dest,
+        action=effective_action,
+        template=effective_template,
+        dry_run=effective_dry_run,
+        recursive=effective_recursive,
+        follow_symlinks=effective_symlinks,
+        include_extensions=effective_include,
+        exclude_extensions=effective_exclude,
         extra=extra_values,
     )
 
@@ -122,7 +152,7 @@ def run(
         exclude_extensions=config.normalized_exclude_extensions(),
     )
 
-    organizer = MediaOrganizer(config=config, profiles=profiles)
+    organizer = MediaOrganizer(config=config)
     files = list(iter_media_files(config.source, scan_options))
 
     if not files:

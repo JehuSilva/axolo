@@ -1,0 +1,65 @@
+# config.yaml — configuración de ejecución para media-organizer
+#
+# Uso:
+#   media-organizer run --config config.yaml
+#   media-organizer run --config config.yaml --dry-run   # los flags CLI tienen precedencia
+
+# ── Rutas ──────────────────────────────────────────────────────────────────────
+source: data/House2
+destination: data/Organized
+
+# ── Acción ─────────────────────────────────────────────────────────────────────
+# move | copy | link
+action: move
+
+# ── Routing por categoría ──────────────────────────────────────────────────────
+# Define qué template de carpeta (y opcionalmente de nombre) aplica cada tipo.
+# Claves válidas: fotos, videos, 360-fotos, 360-videos, musica, documentos, otros
+# Templates de carpeta disponibles: ver DEFAULT_TEMPLATES en templates.py
+#   year_month_cap       → 2026/Abril
+#   year_month           → 2026/04
+#   year_month_name      → 2026/abril
+#   year_month_name_day  → 2026/Abril/Abril 15
+#   music_genre          → rock
+#   music_genre_artist   → rock/the-beatles
+#   camera               → canon/eos-r5/2026/04
+#   (o cualquier template personalizado con placeholders)
+
+profiles:
+  - name: fotos
+    template: year_month_cap
+    # Resultado: Fotos_y_Videos/Fotos/2026/Abril/foto.jpg
+
+  - name: videos
+    template: year_month_cap
+    # Resultado: Fotos_y_Videos/Videos/2026/Abril/video.mp4
+
+  - name: 360-fotos
+    template: year_month_cap
+    # Resultado: Fotos_y_Videos/360/Fotos/2026/Abril/img.insp
+
+  - name: 360-videos
+    template: year_month_cap
+    # Resultado: Fotos_y_Videos/360/Videos/2026/Abril/vid.insv
+
+  - name: musica
+    template: music_genre
+    filename_template: "{music_artist} - {music_title}"
+    # Resultado: Musica/rock/the-beatles - let-it-be.mp3
+
+  - name: documentos
+    template: year_month_cap
+    # Resultado: Documentos/2026/Abril/contrato.pdf
+
+  # - name: otros
+  #   template: year_month_name
+  #   # Resultado: Otros/2026/abril/archivo.zip
+
+# ── Opciones ───────────────────────────────────────────────────────────────────
+dry_run: false
+recursive: true
+follow_symlinks: false
+
+# ── Variables extra para templates que las requieran ──────────────────────────
+# extra:
+#   evento: Boda2026

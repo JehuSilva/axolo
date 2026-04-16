@@ -83,6 +83,10 @@ class MediaMetadata:
     original_name: Optional[str] = None
     timestamp_source: TimestampSource = TimestampSource.METADATA
     is_panoramic: bool = False
+    music_artist: Optional[str] = None
+    music_title: Optional[str] = None
+    music_genre: Optional[str] = None
+    music_album: Optional[str] = None
 
     @property
     def stem(self) -> str:
@@ -220,13 +224,17 @@ def extract_metadata(path: Path) -> MediaMetadata:
     camera_make: Optional[str] = None
     camera_model: Optional[str] = None
     timestamp_source = TimestampSource.UNKNOWN
+    music_artist: Optional[str] = None
+    music_title: Optional[str] = None
+    music_genre: Optional[str] = None
+    music_album: Optional[str] = None
 
     if media_type == MediaType.IMAGE:
         captured_at, camera_make, camera_model, timestamp_source = _extract_image_metadata(path)
     elif media_type == MediaType.VIDEO:
         captured_at, camera_make, camera_model, timestamp_source = _extract_video_metadata(path)
     elif media_type == MediaType.AUDIO:
-        captured_at, timestamp_source = _extract_audio_metadata(path)
+        captured_at, timestamp_source, music_artist, music_title, music_genre, music_album = _extract_audio_metadata(path)
     elif media_type == MediaType.DOCUMENT:
         captured_at, timestamp_source = _extract_document_metadata(path)
 
@@ -255,6 +263,10 @@ def extract_metadata(path: Path) -> MediaMetadata:
         original_name=path.name,
         timestamp_source=timestamp_source,
         is_panoramic=is_panoramic,
+        music_artist=music_artist,
+        music_title=music_title,
+        music_genre=music_genre,
+        music_album=music_album,
     )
 
 
@@ -520,38 +532,45 @@ def _quicktime_epoch_to_datetime(value: int) -> Optional[datetime]:
     return dt.astimezone()
 
 
-def _extract_audio_metadata(path: Path) -> tuple[Optional[datetime], TimestampSource]:
+_AUDIO_DATE_KEYS = ["TDRC", "TDOR", "TORY", "TDRL", "DATE", "Year", "YEAR", "year", "TYER", "©day"]
+_AUDIO_ARTIST_KEYS = ["TPE1", "artist", "ARTIST", "©ART", "Author"]
+_AUDIO_TITLE_KEYS = ["TIT2", "title", "TITLE", "©nam"]
+_AUDIO_GENRE_KEYS = ["TCON", "genre", "GENRE", "©gen"]
+_AUDIO_ALBUM_KEYS = ["TALB", "album", "ALBUM", "©alb"]
+
+
+def _extract_audio_metadata(
+    path: Path,
+) -> tuple[Optional[datetime], TimestampSource, Optional[str], Optional[str], Optional[str], Optional[str]]:
     if mutagen is None:
         logger.debug("mutagen no está instalado; usando timestamp del sistema para %s", path)
-        return None, TimestampSource.UNKNOWN
+        return None, TimestampSource.UNKNOWN, None, None, None, None
 
     try:
         audio = mutagen.File(path)  # type: ignore[attr-defined]
     except Exception as exc:  # pragma: no cover - mutagen lanza distintos errores según formato
         logger.debug("No fue posible leer metadatos de audio en %s: %s", path, exc)
-        return None, TimestampSource.UNKNOWN
+        return None, TimestampSource.UNKNOWN, None, None, None, None
 
     if audio is None:
-        return None, TimestampSource.UNKNOWN
+        return None, TimestampSource.UNKNOWN, None, None, None, None
 
     tags = getattr(audio, "tags", None)
     if not tags:
-        return None, TimestampSource.UNKNOWN
+        return None, TimestampSource.UNKNOWN, None, None, None, None
 
-    tag_candidates = [
-        "TDRC",
-        "TDOR",
-        "TORY",
-        "TDRL",
-        "DATE",
-        "Year",
-        "YEAR",
-        "year",
-        "TYER",
-        "©day",
-    ]
+    def _first_tag(keys: list[str]) -> Optional[str]:
+        for key in keys:
+            value = tags.get(key)
+            if value is not None:
+                normalized = _normalize_tag_value(value)
+                if normalized:
+                    return normalized
+        return None
 
-    for key in tag_candidates:
+    captured_at: Optional[datetime] = None
+    timestamp_source = TimestampSource.UNKNOWN
+    for key in _AUDIO_DATE_KEYS:
         value = tags.get(key)
         if value is None:
             continue
@@ -560,9 +579,16 @@ def _extract_audio_metadata(path: Path) -> tuple[Optional[datetime], TimestampSo
             continue
         parsed = _parse_flexible_datetime(normalized)
         if parsed:
-            return parsed, TimestampSource.METADATA
+            captured_at = parsed
+            timestamp_source = TimestampSource.METADATA
+            break
 
-    return None, TimestampSource.UNKNOWN
+    music_artist = _first_tag(_AUDIO_ARTIST_KEYS)
+    music_title = _first_tag(_AUDIO_TITLE_KEYS)
+    music_genre = _first_tag(_AUDIO_GENRE_KEYS)
+    music_album = _first_tag(_AUDIO_ALBUM_KEYS)
+
+    return captured_at, timestamp_source, music_artist, music_title, music_genre, music_album
 
 
 def _extract_document_metadata(path: Path) -> tuple[Optional[datetime], TimestampSource]:

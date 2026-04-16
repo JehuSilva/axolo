@@ -23,8 +23,9 @@ def test_media_organizer_resolves_collisions(tmp_path, monkeypatch):
     file_path.write_bytes(b"test")
     _set_file_timestamp(file_path, datetime(2023, 1, 2, 12, 0))
 
+    # default template is {year}/{month_name_cap} → 2023/Enero
     category_folder = MediaCategory.PHOTOS_VIDEOS.folder_name()
-    preexisting_dir = destination / category_folder / "2023/01"
+    preexisting_dir = destination / category_folder / "Fotos" / "2023" / "Enero"
     preexisting_dir.mkdir(parents=True)
     (preexisting_dir / "photo.jpg").write_bytes(b"existing")
 
@@ -53,7 +54,7 @@ def test_media_organizer_resolves_collisions(tmp_path, monkeypatch):
     summary = organizer.organize(files)
 
     assert summary.copied == 1
-    new_file = destination / category_folder / "2023/01" / "photo_1.jpg"
+    new_file = destination / category_folder / "Fotos" / "2023" / "Enero" / "photo_1.jpg"
     assert new_file.exists()
     assert summary.failed == 0
     assert summary.status_counts()["copied"] == 1
@@ -94,8 +95,9 @@ def test_media_organizer_routes_panoramic_video_to_360_videos(tmp_path, monkeypa
     files = list(iter_media_files(source, ScanOptions(recursive=True)))
     summary = organizer.organize(files)
 
+    # default template is {year}/{month_name_cap} → 2026/Abril
     category_folder = MediaCategory.PHOTOS_VIDEOS.folder_name()
-    expected = destination / category_folder / "360" / "Videos" / "2026" / "04" / file_path.name
+    expected = destination / category_folder / "360" / "Videos" / "2026" / "Abril" / file_path.name
     assert summary.results[0].destination == expected
 
 
@@ -133,8 +135,9 @@ def test_media_organizer_routes_panoramic_photo_to_360_fotos(tmp_path, monkeypat
     files = list(iter_media_files(source, ScanOptions(recursive=True)))
     summary = organizer.organize(files)
 
+    # default template is {year}/{month_name_cap} → 2026/Abril
     category_folder = MediaCategory.PHOTOS_VIDEOS.folder_name()
-    expected = destination / category_folder / "360" / "Fotos" / "2026" / "04" / file_path.name
+    expected = destination / category_folder / "360" / "Fotos" / "2026" / "Abril" / file_path.name
     assert summary.results[0].destination == expected
 
 
@@ -173,7 +176,7 @@ def test_media_organizer_sends_unreliable_files_to_unknown(tmp_path, monkeypatch
 
     assert summary.dry_run == 1
     category_folder = MediaCategory.PHOTOS_VIDEOS.folder_name()
-    expected = destination / category_folder / "unknown_date" / "photo.jpg"
+    expected = destination / category_folder / "Fotos" / "unknown_date" / "photo.jpg"
     assert summary.results[0].destination == expected
     assert summary.status_counts()["dry-run"] == 1
     assert summary.results[0].category == MediaCategory.PHOTOS_VIDEOS
