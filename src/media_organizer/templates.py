@@ -40,8 +40,11 @@ MONTH_NAMES_ES_SHORT = [
     "dic",
 ]
 
+MONTH_NAMES_ES_CAP = [name.capitalize() for name in MONTH_NAMES_ES]
+
 DEFAULT_TEMPLATES: Dict[str, str] = {
-    "default": "{year}/{month:02d}",
+    "default": "{year}/{month_name_cap}/{month_name_cap} {day}",
+    "year_month": "{year}/{month:02d}",
     "year_month_day": "{year}/{month:02d}/{day:02d}",
     "camera": "{camera_make}/{camera_model}/{year}/{month:02d}",
     "year_month_name": "{year}/{month_name}",
@@ -64,6 +67,7 @@ def available_placeholders() -> set[str]:
         "camera_make",
         "camera_model",
         "month_name",
+        "month_name_cap",
         "month_name_short",
         "category",
         "category_label",
@@ -85,6 +89,7 @@ def build_context(metadata: MediaMetadata, extra: Optional[dict[str, str]] = Non
         "camera_make": _slug(metadata.camera_make) if metadata.camera_make else "unknown",
         "camera_model": _slug(metadata.camera_model) if metadata.camera_model else "unknown",
         "month_name": MONTH_NAMES_ES[dt.month],
+        "month_name_cap": MONTH_NAMES_ES_CAP[dt.month],
         "month_name_short": MONTH_NAMES_ES_SHORT[dt.month],
         "category": metadata.category.folder_name(),
         "category_label": metadata.category.label(),
