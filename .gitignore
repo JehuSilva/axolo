@@ -1,0 +1,92 @@
+# built and distribution files
+dist/
+build/
+*.egg-info/
+
+# media files
+media/
+
+# cache files
+.cache/
+__pycache__/
+
+# virtual environment
+venv/
+.venv/
+
+# pytest cache
+.pytest_cache/
+
+# pytest coverage files
+.coverage
+coverage.xml
+
+# mypy cache
+.mypy_cache/
+
+# black cache
+.black-cache/
+
+# flake8 cache
+.flake8/
+
+# pylint cache
+.pylint.d/
+
+# python bytecode files
+*.pyc
+*.pyo
+
+# editor files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# vscode settings
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# pytest artifacts
+pytest.log
+
+# coverage artifacts
+coverage.json
+coverage-final.json
+
+# mypy artifacts
+.mypy_cache/
+
+# black artifacts
+.black-cache/
+
+# flake8 artifacts
+.flake8/
+
+# pylint artifacts
+.pylint.d/
+
+# pytest artifacts
+.pytest_cache/
+
+# pytest artifacts
+pytest.log
+
+# pytest artifacts
+.coverage
+
+# pytest artifacts
+coverage.xml
+
+# pytest artifacts
+htmlcov/
+
+# pytest artifacts
+junit-*
+
+
+# data
+data/
+data_output/
