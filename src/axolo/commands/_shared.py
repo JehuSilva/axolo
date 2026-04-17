@@ -28,7 +28,7 @@ def parse_extra(extra: Optional[List[str]]) -> Dict[str, str]:
     for item in extra:
         if "=" not in item:
             raise typer.BadParameter(
-                f"El argumento extra '{item}' debe tener el formato clave=valor"
+                f"Extra argument '{item}' must use the key=value format"
             )
         key, value = item.split("=", 1)
         result[key] = value
@@ -37,9 +37,9 @@ def parse_extra(extra: Optional[List[str]]) -> Dict[str, str]:
 
 def validate_workers(workers: int) -> int:
     if workers < 1:
-        raise typer.BadParameter("--workers debe ser al menos 1.")
+        raise typer.BadParameter("--workers must be at least 1.")
     if workers > 32:
-        raise typer.BadParameter("--workers no puede superar 32.")
+        raise typer.BadParameter("--workers cannot exceed 32.")
     return workers
 
 
@@ -52,13 +52,13 @@ def collect_metadata(
         paths_list,
         workers=workers,
         show_progress=show_progress,
-        description="Extrayendo metadatos...",
+        description="Extracting metadata...",
     )
     metadata_items: list[MediaMetadata] = []
     errors: list[str] = []
     for path, result in zip(paths_list, results):
         if isinstance(result, BaseException):
-            logger.warning("Error al extraer metadatos de %s: %s", path, result)
+            logger.warning("Failed to extract metadata from %s: %s", path, result)
             errors.append(f"{path}: {result}")
         else:
             metadata_items.append(result)
@@ -74,12 +74,12 @@ def humanize_bytes(n: int) -> str:
 
 
 def render_summary(summary: OrganizeSummary) -> None:
-    table = Table(title="Resumen de organización")
-    table.add_column("Archivo origen", style="cyan", no_wrap=True)
-    table.add_column("Destino", style="green")
-    table.add_column("Estado", style="magenta")
-    table.add_column("Categoría", style="yellow")
-    table.add_column("Mensaje", style="white")
+    table = Table(title="Organization summary")
+    table.add_column("Source file", style="cyan", no_wrap=True)
+    table.add_column("Destination", style="green")
+    table.add_column("Status", style="magenta")
+    table.add_column("Category", style="yellow")
+    table.add_column("Message", style="white")
 
     for result in summary.results:
         category_label = "-"
@@ -94,10 +94,10 @@ def render_summary(summary: OrganizeSummary) -> None:
         )
     console.print(table)
 
-    summary_table = Table(title="Resumen por estado")
-    summary_table.add_column("Estado", style="magenta")
-    summary_table.add_column("Cantidad", style="cyan", justify="right")
-    summary_table.add_column("Porcentaje", style="white", justify="right")
+    summary_table = Table(title="Status breakdown")
+    summary_table.add_column("Status", style="magenta")
+    summary_table.add_column("Count", style="cyan", justify="right")
+    summary_table.add_column("Percent", style="white", justify="right")
 
     counts = summary.status_counts()
     ordered = ["moved", "copied", "linked", "dry-run", "skipped", "failed"]
@@ -115,10 +115,10 @@ def render_summary(summary: OrganizeSummary) -> None:
 
     category_counts = summary.category_counts()
     if category_counts:
-        cat_table = Table(title="Resumen por categoría")
-        cat_table.add_column("Categoría", style="yellow")
-        cat_table.add_column("Cantidad", style="cyan", justify="right")
-        cat_table.add_column("Porcentaje", style="white", justify="right")
+        cat_table = Table(title="Category breakdown")
+        cat_table.add_column("Category", style="yellow")
+        cat_table.add_column("Count", style="cyan", justify="right")
+        cat_table.add_column("Percent", style="white", justify="right")
         for label, value in category_counts.items():
             pct = f"{(value / total * 100):.1f}%" if total else "0.0%"
             cat_table.add_row(label, str(value), pct)
@@ -128,22 +128,22 @@ def render_summary(summary: OrganizeSummary) -> None:
 
 def render_runs_table(runs: list[dict]) -> None:
     if not runs:
-        console.print("[yellow]No hay runs registrados en el journal.[/yellow]")
+        console.print("[yellow]No runs recorded in the journal.[/yellow]")
         return
-    table = Table(title="Runs registrados en el journal")
+    table = Table(title="Journal runs")
     table.add_column("Run ID", style="cyan")
-    table.add_column("Comando", style="magenta")
-    table.add_column("Inicio", style="white")
-    table.add_column("Estado", style="green")
+    table.add_column("Command", style="magenta")
+    table.add_column("Started", style="white")
+    table.add_column("Status", style="green")
     table.add_column("Dry-run", style="yellow")
-    table.add_column("Fuente", style="blue")
+    table.add_column("Source", style="blue")
     for r in runs:
         table.add_row(
             r["run_id"][:8] + "…",
             r["command"],
             r["started_at"][:19],
             r["status"] or "—",
-            "sí" if r["dry_run"] else "no",
+            "yes" if r["dry_run"] else "no",
             r["source"] or "—",
         )
     console.print(table)

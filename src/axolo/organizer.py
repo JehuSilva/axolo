@@ -132,7 +132,7 @@ class AxoloOrganizer:
             files_list,
             workers=self.workers,
             show_progress=self.show_progress,
-            description="Extrayendo metadatos...",
+            description="Extracting metadata...",
         )
 
         # ── Phase 2: resolve destinations (serial, collision-safe) ──────
@@ -141,7 +141,7 @@ class AxoloOrganizer:
 
         for file_path, result in zip(files_list, meta_results):
             if isinstance(result, BaseException):
-                logger.error("Error extrayendo metadatos de %s: %s", file_path, result)
+                logger.error("Failed to extract metadata from %s: %s", file_path, result)
                 summary.add(FileResult(
                     source=file_path,
                     destination=file_path,
@@ -153,7 +153,7 @@ class AxoloOrganizer:
             try:
                 destination = self._resolve_destination(metadata, planned)
             except Exception as exc:
-                logger.error("Error resolviendo destino para %s: %s", file_path, exc)
+                logger.error("Failed to resolve destination for %s: %s", file_path, exc)
                 summary.add(FileResult(
                     source=file_path,
                     destination=file_path,
@@ -173,7 +173,7 @@ class AxoloOrganizer:
             plan,
             workers=self.workers,
             show_progress=self.show_progress,
-            description="Aplicando acciones...",
+            description="Applying actions...",
         )
 
         for seq, ((metadata, destination), action_result) in enumerate(
@@ -239,7 +239,7 @@ class AxoloOrganizer:
         else:
             destination_dir = (base_dir / "unknown_date").resolve()
             logger.warning(
-                "No se encontró fecha de captura confiable para %s; se moverá a %s",
+                "No reliable capture date found for %s; will be placed in %s",
                 metadata.source_path,
                 destination_dir,
             )
@@ -276,7 +276,7 @@ class AxoloOrganizer:
 
         if self.config.dry_run:
             status = "dry-run"
-            message = "Se omitió el movimiento por estar en modo dry-run."
+            message = "Skipped — dry-run mode active."
             logger.info("[dry-run] %s -> %s", source, destination)
             return FileResult(
                 source=source,
@@ -298,12 +298,12 @@ class AxoloOrganizer:
                 self._create_link(source, destination, self.config.link_kind)
                 status = "linked"
             else:
-                raise ValueError(f"Acción desconocida: {action}")
+                raise ValueError(f"Unknown action: {action}")
             logger.info("%s -> %s (%s)", source, destination, status)
         except Exception as exc:
             status = "failed"
             message = str(exc)
-            logger.error("Error al aplicar la acción sobre %s: %s", source, exc)
+            logger.error("Failed to apply action on %s: %s", source, exc)
 
         return FileResult(
             source=source,
@@ -322,7 +322,7 @@ class AxoloOrganizer:
                 os.symlink(source, destination)
             except (NotImplementedError, OSError) as exc:
                 logger.warning(
-                    "symlink no soportado (%s), usando hardlink para %s", exc, source
+                    "symlink not supported (%s), falling back to hardlink for %s", exc, source
                 )
                 os.link(source, destination)
 

@@ -21,7 +21,7 @@ def iter_media_files(source: Path, options: Optional[ScanOptions] = None) -> Gen
     exclude = {ext.lower() for ext in options.exclude_extensions or set()}
 
     if not source.exists():
-        raise FileNotFoundError(f"El directorio de origen {source} no existe.")
+        raise FileNotFoundError(f"Source directory {source} does not exist.")
 
     paths: Iterable[Path]
     if source.is_file():

@@ -9,410 +9,410 @@
 >>> [Axolo Data]: Organizing the chaos. <<<
 ```
 
-Regenera el orden de tus archivos multimedia con plantillas configurables.
+Automatically organizes your media files — photos, videos, audio and documents — into configurable folder templates.
 
-## Características
+## Features
 
-- Extrae metadatos (EXIF, ID3, PDF, Office, QuickTime) para ordenar archivos multimedia y documentos.
-- Clasifica automáticamente en categorías (`Fotos y Videos`, `Musica`, `Documentos`, `Otros`).
-- Dentro de cada categoría organiza por subcarpeta (Fotos/, Videos/, 360/…) y luego por año/mes (personalizable mediante plantillas).
-- **Paralelismo**: metadata, hashing y movimiento de archivos en hilos concurrentes (`--workers N`).
-- **Modo `dry-run`** para validar resultados sin mover archivos (activo por defecto en `duplicates`, `sync` y `undo`).
-- **Journal de operaciones** (SQLite) para deshacer cualquier `run`, `duplicates` o `sync` ejecutado.
-- **Sincronización dedup-aware**: `sync` añade solo contenido nuevo al destino nunca borra.
-- **Asistente interactivo** (`tui`): menú guiado para todos los comandos sin necesidad de recordar flags.
-- Soporte para HEIC mediante `pillow-heif` y compatibilidad ampliada con videos (ffprobe y tags DJI).
-- Soporte nativo para cámaras 360° (Insta360 X3): formatos `.insp`, `.insv`; archivos 360 se ubican en `Fotos_y_Videos/360/`; los pares de lentes (`_00_`/`_10_`) se agrupan como un solo asset en los reportes.
-- Archivos sin fecha confiable se ubican automáticamente en `unknown_date/` dentro de su categoría.
+- Extracts metadata (EXIF, ID3, PDF, Office, QuickTime) to sort media files and documents.
+- Automatically classifies files into categories (`Photos_Videos`, `Music`, `Documents`, `Other`).
+- Within each category organizes by subfolder (Photos/, Videos/, 360/…) then by year/month (customizable via templates).
+- **Parallelism**: metadata extraction, hashing and file moves run in concurrent threads (`--workers N`).
+- **`dry-run` mode** to preview results without moving files (enabled by default in `duplicates`, `sync` and `undo`).
+- **Operations journal** (SQLite) to undo any `run`, `duplicates` or `sync` execution.
+- **Dedup-aware sync**: `sync` only adds new content to the destination — never deletes.
+- **Interactive wizard** (`tui`): guided menu for all commands without memorizing flags.
+- HEIC support via `pillow-heif` and extended video compatibility (ffprobe and DJI tags).
+- Native support for 360° cameras (Insta360 X3): `.insp`, `.insv` formats; 360 files go to `Photos_Videos/360/`; lens pairs (`_00_`/`_10_`) are grouped as a single asset in reports.
+- Files without a reliable date are automatically placed in `unknown_date/` within their category.
 
-## Requisitos
+## Requirements
 
-- Python 3.10 o superior.
-- [FFmpeg](https://ffmpeg.org/) instalado y disponible en el `PATH` para extraer metadatos de video/audio.
-- Las dependencias se instalan con `pip install -e .` e incluyen `mutagen` (audio), `pypdf` (PDF), `questionary` (TUI) y `rich` (consola).
+- Python 3.10 or higher.
+- [FFmpeg](https://ffmpeg.org/) installed and available in `PATH` for video/audio metadata extraction.
+- Dependencies are installed with `pip install -e .` and include `mutagen` (audio), `pypdf` (PDF), `questionary` (TUI) and `rich` (console).
 
-## Instalación
+## Installation
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # En Windows: .venv\Scripts\activate
-pip install -e ".[dev]"     # incluye dependencias de desarrollo y pruebas
+source .venv/bin/activate   # On Windows: .venv\Scripts\activate
+pip install -e ".[dev]"     # includes dev and test dependencies
 ```
 
-## Comandos disponibles
+## Available commands
 
-| Comando | Descripción |
+| Command | Description |
 |---------|-------------|
-| `run` | Organiza archivos en la estructura de carpetas configurada |
-| `duplicates` | Detecta y gestiona duplicados exactos (byte a byte) |
-| `sync` | Sincroniza dos carpetas sin duplicar contenido |
-| `undo` | Revierte operaciones de un run anterior |
-| `tui` | Asistente interactivo que guía por todos los comandos |
+| `run` | Organizes files into the configured folder structure |
+| `duplicates` | Detects and manages exact duplicates (byte-for-byte) |
+| `sync` | Syncs two folders without duplicating content |
+| `undo` | Reverts operations from a previous run |
+| `tui` | Interactive wizard guiding through all commands |
 
 ---
 
-## `run` — organizar archivos
+## `run` — organize files
 
 ```bash
-# Con archivo de configuración
+# With a configuration file
 axolo run --config config.yaml --dry-run
 
-# Sin archivo de configuración (el CLI solicita los campos faltantes)
-axolo run --source ~/Media --destination /mnt/organizado --dry-run
+# Without a config file (CLI prompts for missing fields)
+axolo run --source ~/Media --destination /mnt/organized --dry-run
 
-# Mover archivos reales con 8 hilos
-axolo run --source ~/Media --destination /mnt/organizado --action move --workers 8
+# Move real files with 8 workers
+axolo run --source ~/Media --destination /mnt/organized --action move --workers 8
 ```
 
-### Flags principales
+### Main flags
 
-| Flag | Descripción | Default |
+| Flag | Description | Default |
 |------|-------------|---------|
-| `--source` / `-s` | Directorio de origen | — |
-| `--destination` / `-d` | Directorio de destino | — |
-| `--action` | `move` \| `copy` \| `link` | Solicitado |
-| `--link-kind` | `hard` \| `symbolic` (para `--action link`) | `symbolic` |
-| `--template` | Template de carpeta o nombre de perfil | Solicitado |
-| `--profile` / `-p` | Alias de `--template` | — |
-| `--config` / `-c` | Ruta al archivo YAML de configuración | — |
-| `--dry-run` / `--no-dry-run` | Simula sin modificar archivos | Solicitado |
-| `--workers N` | Hilos paralelos (1–32) | `min(cpu_count, 8)` |
-| `--no-journal` | Desactiva el registro de operaciones | Journal activo |
-| `--quiet` | Suprime salida en consola | off |
-| `--verbose` | Activa logging DEBUG | off |
-| `--json-logs` | Emite logs en formato JSON Lines a stdout | off |
-| `--extra clave=valor` | Variables adicionales para el template | — |
+| `--source` / `-s` | Source directory | — |
+| `--destination` / `-d` | Destination directory | — |
+| `--action` | `move` \| `copy` \| `link` | Prompted |
+| `--link-kind` | `hard` \| `symbolic` (for `--action link`) | `symbolic` |
+| `--template` | Folder template or profile name | Prompted |
+| `--profile` / `-p` | Alias for `--template` | — |
+| `--config` / `-c` | Path to YAML configuration file | — |
+| `--dry-run` / `--no-dry-run` | Preview without modifying files | Prompted |
+| `--workers N` | Parallel workers (1–32) | `min(cpu_count, 8)` |
+| `--no-journal` | Disable the operations log | Journal enabled |
+| `--quiet` | Suppress console output | off |
+| `--verbose` | Enable DEBUG logging | off |
+| `--json-logs` | Emit logs as JSON Lines to stdout | off |
+| `--extra key=value` | Extra variables for the template | — |
 
-El flag `--dry-run` nunca modifica archivos. La salida muestra una tabla con el origen, destino calculado, categoría y estado.
+The `--dry-run` flag never modifies files. Output shows a table with source, computed destination, category and status.
 
 ---
 
-## `duplicates` — detectar y gestionar duplicados
+## `duplicates` — detect and manage duplicates
 
 ```bash
-# Solo detección (no modifica nada)
+# Detection only (no modifications)
 axolo duplicates --source ~/Media
 
-# Guardar reporte JSON
+# Save JSON report
 axolo duplicates --source ~/Media --output duplicates.json
 
-# Mover duplicados a cuarentena (dry-run activo por defecto)
+# Move duplicates to quarantine (dry-run enabled by default)
 axolo duplicates --source ~/Media --action move --quarantine ~/Media/_dup --dry-run
 
-# Ejecutar movimiento real
+# Run real move
 axolo duplicates --source ~/Media --action move --quarantine ~/Media/_dup --no-dry-run
 
-# Reemplazar duplicados con hard links
+# Replace duplicates with hard links
 axolo duplicates --source ~/Media --action link --no-dry-run
 
-# Priorizar archivos en un directorio específico como "canónico"
-axolo duplicates --source ~/Media --prefer-under ~/Media/Archivo
+# Prioritize files in a specific directory as "canonical"
+axolo duplicates --source ~/Media --prefer-under ~/Media/Archive
 ```
 
-### Flags principales
+### Main flags
 
-| Flag | Descripción | Default |
+| Flag | Description | Default |
 |------|-------------|---------|
-| `--source` / `-s` | Directorio a analizar | Requerido |
+| `--source` / `-s` | Directory to analyze | Required |
 | `--algorithm` | `blake2b` \| `sha256` \| `md5` | `blake2b` |
-| `--min-size` | Tamaño mínimo en bytes para comparar | `1` |
-| `--prefer-under PATH` | Directorio cuyo contenido se considera canónico | — |
-| `--action` | `move` \| `link` \| `delete` | — (solo reporta) |
-| `--quarantine PATH` | Destino para `--action move` | — |
-| `--link-kind` | `hard` \| `symbolic` (para `--action link`) | `hard` |
-| `--dry-run` / `--no-dry-run` | Simula acciones sin ejecutarlas | `--dry-run` |
-| `--output` / `-o` | Ruta para guardar el reporte JSON | — |
-| `--workers N` | Hilos paralelos para hashing | `min(cpu_count, 8)` |
+| `--min-size` | Minimum file size in bytes to compare | `1` |
+| `--prefer-under PATH` | Directory whose content is treated as canonical | — |
+| `--action` | `move` \| `link` \| `delete` | — (report only) |
+| `--quarantine PATH` | Destination for `--action move` | — |
+| `--link-kind` | `hard` \| `symbolic` (for `--action link`) | `hard` |
+| `--dry-run` / `--no-dry-run` | Simulate actions without executing | `--dry-run` |
+| `--output` / `-o` | Path to save the JSON report | — |
+| `--workers N` | Parallel workers for hashing | `min(cpu_count, 8)` |
 
-### Selección del archivo canónico
+### Canonical file selection
 
-El canónico de cada grupo se elige con esta prioridad:
-1. Archivos bajo el path indicado con `--prefer-under` (evita borrar el original si tiene una ruta más larga que la copia).
-2. Archivo con `mtime` más antiguo (el más probable de ser el original).
-3. Orden lexicográfico del path (desempate determinista).
+The canonical file in each group is chosen with this priority:
+1. Files under the path specified with `--prefer-under` (avoids deleting the original when a copy has a shorter path).
+2. File with the oldest `mtime` (most likely the original).
+3. Lexicographic path order (deterministic tiebreak).
 
 ---
 
-## `sync` — sincronizar carpetas
+## `sync` — sync folders
 
-Copia (o mueve) al destino únicamente el contenido que aún no existe allí, identificado por hash. Nunca borra archivos del destino.
+Copies (or moves) to the destination only content that does not already exist there, identified by hash. Never deletes files from the destination.
 
 ```bash
-# Ver qué se añadiría sin tocar nada
-axolo sync --source ~/NuevosArchivos --destination ~/Archivo --dry-run
+# Preview what would be added without touching anything
+axolo sync --source ~/NewFiles --destination ~/Archive --dry-run
 
-# Sincronizar de verdad
-axolo sync --source ~/NuevosArchivos --destination ~/Archivo --action copy --no-dry-run
+# Real sync
+axolo sync --source ~/NewFiles --destination ~/Archive --action copy --no-dry-run
 
-# Guardar el plan como JSON
+# Save the plan as JSON
 axolo sync --source ~/A --destination ~/B --output plan.json
 ```
 
-### Política de resolución de conflictos
+### Conflict resolution policy
 
-| Situación | Resultado |
-|-----------|-----------|
-| Hash idéntico en destino | Archivo omitido (ya existe el contenido) |
-| Nombre libre, hash nuevo | Archivo añadido normalmente |
-| Nombre ocupado, contenido distinto | Archivo renombrado con sufijo `_<hash8>` |
+| Situation | Result |
+|-----------|--------|
+| Identical hash at destination | File skipped (content already exists) |
+| Free name, new hash | File added normally |
+| Name taken, different content | File renamed with `_<hash8>` suffix |
 
-### Flags principales
+### Main flags
 
-| Flag | Descripción | Default |
+| Flag | Description | Default |
 |------|-------------|---------|
-| `--source` / `-s` | Directorio de origen | Requerido |
-| `--destination` / `-d` | Directorio de destino | Requerido |
+| `--source` / `-s` | Source directory | Required |
+| `--destination` / `-d` | Destination directory | Required |
 | `--action` | `copy` \| `move` | `copy` |
 | `--algorithm` | `blake2b` \| `sha256` \| `md5` | `blake2b` |
-| `--template` | Template de carpeta destino | `default` |
-| `--dry-run` / `--no-dry-run` | Simula sin modificar archivos | `--dry-run` |
-| `--output` / `-o` | Ruta para guardar el plan JSON | — |
-| `--workers N` | Hilos paralelos | `min(cpu_count, 8)` |
+| `--template` | Destination folder template | `default` |
+| `--dry-run` / `--no-dry-run` | Preview without modifying files | `--dry-run` |
+| `--output` / `-o` | Path to save the JSON plan | — |
+| `--workers N` | Parallel workers | `min(cpu_count, 8)` |
 
 ---
 
-## `undo` — deshacer operaciones
+## `undo` — revert operations
 
-Revierte en orden inverso todas las operaciones de un `run`, `duplicates` o `sync` anterior.
+Reverts in reverse order all operations from a previous `run`, `duplicates` or `sync`.
 
 ```bash
-# Ver los runs registrados en el journal
+# List runs recorded in the journal
 axolo undo --list
 
-# Previsualizar qué desharía el último run
+# Preview what the last run would undo
 axolo undo --dry-run
 
-# Deshacer un run específico de verdad
+# Actually undo a specific run
 axolo undo --run-id <uuid> --no-dry-run
 ```
 
-### Qué puede y no puede deshacer
+### What can and cannot be undone
 
-| Acción original | Resultado del undo |
-|-----------------|--------------------|
-| `move` A → B | Mueve B de vuelta a A |
-| `copy` A → B | Elimina B (la copia) |
-| `link` (hard/sym) | Elimina el enlace creado |
-| `delete` | No reversible; se reporta el error |
+| Original action | Undo result |
+|-----------------|-------------|
+| `move` A → B | Moves B back to A |
+| `copy` A → B | Deletes B (the copy) |
+| `link` (hard/sym) | Deletes the created link |
+| `delete` | Not reversible; error is reported |
 
 ### Flags
 
-| Flag | Descripción | Default |
+| Flag | Description | Default |
 |------|-------------|---------|
-| `--run-id ID` | Run a revertir | Último run no revertido |
-| `--list` | Lista runs recientes y sale | — |
-| `--dry-run` / `--no-dry-run` | Simula sin modificar | `--dry-run` |
-| `--limit N` | Número de runs a mostrar con `--list` | `10` |
+| `--run-id ID` | Run to revert | Last non-reverted run |
+| `--list` | List recent runs and exit | — |
+| `--dry-run` / `--no-dry-run` | Simulate without modifying | `--dry-run` |
+| `--limit N` | Number of runs to show with `--list` | `10` |
 
 ### Journal
 
-Las operaciones se guardan automáticamente en `~/.axolo/journal.db` (SQLite). Puedes cambiar la ruta con la variable de entorno `MEDIA_ORGANIZER_JOURNAL`.
+Operations are automatically saved to `~/.axolo/journal.db` (SQLite). Override the path with the `AXOLO_JOURNAL` environment variable.
 
 ---
 
-## `tui` — asistente interactivo
+## `tui` — interactive wizard
 
-Menú guiado que permite ejecutar cualquier comando sin recordar flags.
+Guided menu to run any command without memorizing flags.
 
 ```bash
 axolo tui
 ```
 
-El asistente ofrece:
+The wizard offers:
 
-1. **Organizar archivos** — wizard para el comando `run`.
-2. **Buscar duplicados** — wizard para `duplicates` con previsualización.
-3. **Sincronizar carpetas** — wizard para `sync`.
-4. **Ver historial y deshacer** — lista runs del journal, permite seleccionar uno y ejecutar `undo`.
-5. **Salir**.
+1. **Organize files** — wizard for the `run` command.
+2. **Find duplicates** — wizard for `duplicates` with preview.
+3. **Sync folders** — wizard for `sync`.
+4. **View history & undo** — lists journal runs, lets you select one and execute `undo`.
+5. **Exit**.
 
 ---
 
-## Configuración (`config.yaml`)
+## Configuration (`config.yaml`)
 
-El método recomendado es definir la configuración de ejecución en un archivo YAML:
+The recommended approach is to define execution settings in a YAML file:
 
 ```bash
 cp profiles.sample.yaml config.yaml
 ```
 
-Estructura mínima:
+Minimal structure:
 
 ```yaml
 source: ~/Media
-destination: /mnt/organizado
+destination: /mnt/organized
 action: copy          # move | copy | link
 dry_run: false
 recursive: true
 follow_symlinks: false
 ```
 
-### Perfiles por categoría (`profiles:`)
+### Per-category profiles (`profiles:`)
 
-| Clave | Descripción | Subcarpeta dentro de la categoría |
-|-------|-------------|-----------------------------------|
-| `fotos` | Fotos no panorámicas | `Fotos_y_Videos/Fotos/` |
-| `videos` | Videos no panorámicos | `Fotos_y_Videos/Videos/` |
-| `360-fotos` | Fotos panorámicas (.insp) | `Fotos_y_Videos/360/Fotos/` |
-| `360-videos` | Videos panorámicos (.insv) | `Fotos_y_Videos/360/Videos/` |
-| `musica` | Audio (alias: `music`) | `Musica/` |
-| `documentos` | Documentos (alias: `docs`) | `Documentos/` |
-| `otros` | Todo lo demás (alias: `other`) | `Otros/` |
+| Key | Description | Subfolder within category |
+|-----|-------------|--------------------------|
+| `fotos` | Non-panoramic photos | `Photos_Videos/Photos/` |
+| `videos` | Non-panoramic videos | `Photos_Videos/Videos/` |
+| `360-fotos` | Panoramic photos (.insp) | `Photos_Videos/360/Photos/` |
+| `360-videos` | Panoramic videos (.insv) | `Photos_Videos/360/Videos/` |
+| `musica` | Audio (alias: `music`) | `Music/` |
+| `documentos` | Documents (alias: `docs`) | `Documents/` |
+| `otros` | Everything else (alias: `other`) | `Other/` |
 
-Ejemplo completo:
+Full example:
 
 ```yaml
 source: ~/Media
-destination: /mnt/organizado
+destination: /mnt/organized
 action: copy
 
 profiles:
   - name: fotos
     template: year_month_cap
-    # → Fotos_y_Videos/Fotos/2026/Abril/foto.jpg
+    # → Photos_Videos/Photos/2026/April/photo.jpg
 
   - name: videos
     template: year_month_cap
-    # → Fotos_y_Videos/Videos/2026/Abril/video.mp4
+    # → Photos_Videos/Videos/2026/April/video.mp4
 
   - name: musica
     template: music_genre
     filename_template: "{music_artist} - {music_title}"
-    # → Musica/rock/the-beatles - let-it-be.mp3
+    # → Music/rock/the-beatles - let-it-be.mp3
 
   - name: documentos
     template: year_month_cap
-    # → Documentos/2026/Abril/contrato.pdf
+    # → Documents/2026/April/contract.pdf
 
 dry_run: false
 recursive: true
 ```
 
-### Defaults por categoría
+### Category defaults
 
-| Categoría | Template por defecto | Ejemplo |
-|-----------|---------------------|---------|
-| Fotos | `{year}/{month_name_cap}` | `Fotos_y_Videos/Fotos/2026/Abril/foto.jpg` |
-| Videos | `{year}/{month_name_cap}` | `Fotos_y_Videos/Videos/2026/Abril/video.mp4` |
-| Fotos 360 | `{year}/{month_name_cap}` | `Fotos_y_Videos/360/Fotos/2026/Abril/img.insp` |
-| Videos 360 | `{year}/{month_name_cap}` | `Fotos_y_Videos/360/Videos/2026/Abril/vid.insv` |
-| Música | `{music_genre}/{music_artist}` + renombrado `Artista - Titulo` | `Musica/rock/the-beatles/` |
-| Documentos | `{year}/{month_name_cap}` | `Documentos/2026/Abril/contrato.pdf` |
-| Otros | `{year}/{month_name}` | `Otros/2026/abril/archivo.zip` |
+| Category | Default template | Example |
+|----------|-----------------|---------|
+| Photos | `{year}/{month_name_cap}` | `Photos_Videos/Photos/2026/April/photo.jpg` |
+| Videos | `{year}/{month_name_cap}` | `Photos_Videos/Videos/2026/April/video.mp4` |
+| 360 Photos | `{year}/{month_name_cap}` | `Photos_Videos/360/Photos/2026/April/img.insp` |
+| 360 Videos | `{year}/{month_name_cap}` | `Photos_Videos/360/Videos/2026/April/vid.insv` |
+| Music | `{music_genre}/{music_artist}` + rename `Artist - Title` | `Music/rock/the-beatles/` |
+| Documents | `{year}/{month_name_cap}` | `Documents/2026/April/contract.pdf` |
+| Other | `{year}/{month_name}` | `Other/2026/april/file.zip` |
 
 ---
 
-## Templates disponibles
+## Available templates
 
-### Templates con nombre
+### Named templates
 
-| Nombre | Patrón | Ejemplo |
-|--------|--------|---------|
-| `default` | `{year}/{month_name_cap}` | `2026/Abril` |
-| `year_month_cap` | `{year}/{month_name_cap}` | `2026/Abril` |
+| Name | Pattern | Example |
+|------|---------|---------|
+| `default` | `{year}/{month_name_cap}` | `2026/April` |
+| `year_month_cap` | `{year}/{month_name_cap}` | `2026/April` |
 | `year_month` | `{year}/{month:02d}` | `2026/04` |
-| `year_month_name` | `{year}/{month_name}` | `2026/abril` |
-| `year_month_name_day` | `{year}/{month_name_cap}/{month_name_cap} {day}` | `2026/Abril/Abril 15` |
+| `year_month_name` | `{year}/{month_name}` | `2026/april` |
+| `year_month_name_day` | `{year}/{month_name_cap}/{month_name_cap} {day}` | `2026/April/April 15` |
 | `year_month_day` | `{year}/{month:02d}/{day:02d}` | `2026/04/15` |
 | `music_genre` | `{music_genre}` | `rock` |
 | `music_genre_artist` | `{music_genre}/{music_artist}` | `rock/the-beatles` |
 | `camera` | `{camera_make}/{camera_model}/{year}/{month:02d}` | `canon/eos-r5/2026/04` |
 
-### Perfiles built-in (con `--profile`)
+### Built-in profiles (with `--profile`)
 
-| Nombre | Descripción |
-|--------|-------------|
-| `fotos-cronologico` | Año / mes / día en español |
-| `fotos-compacto` | Carpetas numéricas `YYYY/MM/DD` |
-| `fotos-por-camara` | Agrupado por marca y modelo de cámara |
-| `musica` | Género y artista; renombra a `Artista - Titulo` |
-| `musica-con-album` | Género / artista / álbum |
-| `musica-por-artista` | Artista / álbum (sin género) |
-| `documentos` | Año y mes numérico |
-| `documentos-por-mes` | Año y mes en español |
-| `eventos` | Requiere `--extra evento=NombreEvento` |
+| Name | Description |
+|------|-------------|
+| `fotos-cronologico` | Year / month / day |
+| `fotos-compacto` | Numeric folders `YYYY/MM/DD` |
+| `fotos-por-camara` | Grouped by camera make and model |
+| `musica` | Genre and artist; renames to `Artist - Title` |
+| `musica-con-album` | Genre / artist / album |
+| `musica-por-artista` | Artist / album (no genre) |
+| `documentos` | Numeric year and month |
+| `documentos-por-mes` | Year and month name |
+| `eventos` | Requires `--extra evento=EventName` |
 | `year-month` | `YYYY/MM` |
-| `year-month-name` | `YYYY/nombre-mes` |
+| `year-month-name` | `YYYY/month-name` |
 
-### Placeholders disponibles
+### Available placeholders
 
-| Placeholder | Descripción | Ejemplo |
+| Placeholder | Description | Example |
 |-------------|-------------|---------|
-| `{year}` | Año de captura | `2026` |
-| `{month}` / `{month:02d}` | Mes numérico | `4` / `04` |
-| `{day}` / `{day:02d}` | Día numérico | `5` / `05` |
-| `{hour}`, `{minute}`, `{second}` | Hora de captura | `18`, `24`, `46` |
-| `{month_name}` | Mes en español (minúsculas) | `abril` |
-| `{month_name_short}` | Mes abreviado (español) | `abr` |
-| `{month_name_cap}` | Mes capitalizado (español) | `Abril` |
-| `{stem}` | Nombre de archivo sin extensión | `IMG_20260415` |
-| `{ext}` | Extensión sin punto | `jpg` |
-| `{camera_make}` | Marca de cámara (slug) | `canon` |
-| `{camera_model}` | Modelo de cámara (slug) | `eos-r5` |
-| `{music_artist}` | Artista (desde ID3/Vorbis/MP4) | `the-beatles` |
-| `{music_title}` | Título de canción | `let-it-be` |
-| `{music_genre}` | Género musical | `rock` |
-| `{music_album}` | Álbum | `abbey-road` |
-| `{category}` | Carpeta de categoría | `Fotos_y_Videos` |
-| `{category_label}` | Etiqueta legible de categoría | `Fotos y Videos` |
-| `{category_slug}` | Slug de la categoría | `fotos-y-videos` |
+| `{year}` | Capture year | `2026` |
+| `{month}` / `{month:02d}` | Numeric month | `4` / `04` |
+| `{day}` / `{day:02d}` | Numeric day | `5` / `05` |
+| `{hour}`, `{minute}`, `{second}` | Capture time | `18`, `24`, `46` |
+| `{month_name}` | Month name (lowercase) | `april` |
+| `{month_name_short}` | Abbreviated month | `apr` |
+| `{month_name_cap}` | Capitalized month | `April` |
+| `{stem}` | Filename without extension | `IMG_20260415` |
+| `{ext}` | Extension without dot | `jpg` |
+| `{camera_make}` | Camera make (slug) | `canon` |
+| `{camera_model}` | Camera model (slug) | `eos-r5` |
+| `{music_artist}` | Artist (from ID3/Vorbis/MP4) | `the-beatles` |
+| `{music_title}` | Song title | `let-it-be` |
+| `{music_genre}` | Music genre | `rock` |
+| `{music_album}` | Album | `abbey-road` |
+| `{category}` | Category folder | `Photos_Videos` |
+| `{category_label}` | Human-readable category label | `Photos and Videos` |
+| `{category_slug}` | Category slug | `photos-videos` |
 
-Variables adicionales se pueden inyectar con `--extra clave=valor`.
+Extra variables can be injected with `--extra key=value`.
 
 ---
 
-## Compatibilidad con cámaras 360 (Insta 360 X3)
+## 360° camera compatibility (Insta360 X3)
 
-| Extensión | Tipo | Metadatos |
-|-----------|------|-----------|
-| `.insp` | Foto 360 (JPEG con datos 360 al final) | EXIF vía Pillow |
-| `.insv` | Video 360 (contenedor MP4) | QuickTime atoms + ffprobe |
+| Extension | Type | Metadata |
+|-----------|------|----------|
+| `.insp` | 360 photo (JPEG with 360 data appended) | EXIF via Pillow |
+| `.insv` | 360 video (MP4 container) | QuickTime atoms + ffprobe |
 
-Los archivos `.insp` e `.insv` se organizan dentro de `Fotos_y_Videos/360/`. Los pares de lentes (`_00_`/`_10_`) se cuentan como un único asset en `duplicates` y `sync`.
+`.insp` and `.insv` files are organized inside `Photos_Videos/360/`. Lens pairs (`_00_`/`_10_`) are counted as a single asset in `duplicates` and `sync`.
 
 ---
 
 ## FAQ
 
-### ¿Por qué mis fotos van a `unknown_date/`?
+### Why are my photos going to `unknown_date/`?
 
-El organizador no encontró una fecha confiable (ni EXIF, ni nombre de archivo con patrón de fecha). Puedes renombrar los archivos con una fecha (`YYYYMMDD_*.jpg`) o añadir metadatos EXIF para que se clasifiquen correctamente.
+The organizer could not find a reliable date (no EXIF, no filename with a date pattern). You can rename files with a date (`YYYYMMDD_*.jpg`) or add EXIF metadata so they are classified correctly.
 
-### ¿Los timestamps EXIF tienen zona horaria?
+### Do EXIF timestamps include a timezone?
 
-No. El EXIF estándar almacena la hora local sin zona horaria. El organizador la trata como hora local del sistema. Si necesitas cambiar este comportamiento, existe un flag `--assume-tz` pendiente de implementación completa.
+No. The EXIF standard stores local time without a timezone. The organizer treats it as the system's local time. A `--assume-tz` flag is pending full implementation if you need to override this.
 
-### ¿Dónde se guarda el journal?
+### Where is the journal stored?
 
-En `~/.axolo/journal.db`. Cambia la ruta con la variable de entorno `MEDIA_ORGANIZER_JOURNAL`.
+At `~/.axolo/journal.db`. Override the path with the `AXOLO_JOURNAL` environment variable.
 
-### ¿Cómo desactivo el journal?
+### How do I disable the journal?
 
-Usa `--no-journal` en cualquier comando.
+Use `--no-journal` on any command.
 
-### ¿`sync` puede borrar archivos del destino?
+### Can `sync` delete files from the destination?
 
-No. `sync` es una operación de solo adición (política union). Nunca borra ni sobreescribe archivos en el destino; los conflictos de nombre se resuelven renombrando el archivo nuevo con un sufijo `_<hash8>`.
+No. `sync` is an append-only operation (union policy). It never deletes or overwrites files at the destination; name conflicts are resolved by renaming the incoming file with a `_<hash8>` suffix.
 
 ---
 
-## Pruebas
+## Tests
 
 ```bash
-# Ejecutar todos los tests
+# Run all tests
 pytest
 
-# Solo un archivo
+# Single file
 pytest tests/test_organizer.py -v
 
-# Un test específico
+# Specific test
 pytest tests/test_organizer.py::test_axolo_resolves_collisions
 
-# Con cobertura
+# With coverage
 pytest --cov=axolo
 
-# Ignorar tests que requieren archivos reales o ffprobe
+# Skip tests that require real media files or ffprobe
 pytest --ignore=tests/test_metadata_example_files.py --ignore=tests/test_metadata_insta360.py
 ```
 
-La cobertura de la suite es ≥ 80% excluyendo los tests que requieren archivos multimedia reales.
+Test suite coverage is ≥ 80% excluding tests that require real media files.

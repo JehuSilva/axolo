@@ -120,7 +120,7 @@ def setup_logging(
         root.addHandler(file_handler)
     except OSError as exc:
         logging.getLogger(__name__).warning(
-            "No se pudo crear el directorio de logs %s: %s", log_directory, exc
+            "Failed to create log directory %s: %s", log_directory, exc
         )
 
     return correlation_id

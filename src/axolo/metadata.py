@@ -20,13 +20,13 @@ from PIL import ExifTags, Image
 
 logger = logging.getLogger(__name__)
 
-try:  # pragma: no cover - se usa únicamente en producción con soporte HEIC
+try:  # pragma: no cover - only used in production with HEIC support
     from pillow_heif import register_heif_opener  # type: ignore[import]
 
     register_heif_opener()
 except ImportError:  # pragma: no cover
     logger.debug(
-        "pillow-heif no está instalado; los archivos HEIC se procesarán sin soporte nativo"
+        "pillow-heif is not installed; HEIC files will be processed without native support"
     )
 
 try:  # pragma: no cover - dependencias opcionales

@@ -54,7 +54,7 @@ def _hash_file(path: Path, algorithm: str, chunk_size: int) -> Tuple[Optional[st
                 bytes_read += len(chunk)
         return h.hexdigest(), bytes_read
     except OSError as exc:
-        logger.warning("No se pudo hashear %s: %s", path, exc)
+        logger.warning("Failed to hash %s: %s", path, exc)
         return None, 0
 
 
@@ -69,7 +69,7 @@ def _group_by_size(items: Sequence[MediaMetadata]) -> Dict[int, List[MediaMetada
         try:
             size = os.stat(item.source_path).st_size
         except OSError as exc:
-            logger.warning("No se pudo leer tamaño de %s: %s", item.source_path, exc)
+            logger.warning("Failed to read file size of %s: %s", item.source_path, exc)
             continue
         groups.setdefault(size, []).append(item)
     return groups

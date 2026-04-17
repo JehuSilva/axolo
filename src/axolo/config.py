@@ -168,13 +168,13 @@ class OrganizerConfig(BaseModel):
             return value.expanduser()
         if isinstance(value, str):
             return Path(value).expanduser()
-        raise TypeError("Las rutas deben ser cadenas o instancias de Path.")
+        raise TypeError("Paths must be strings or Path instances.")
 
     @field_validator("template")
     @classmethod
     def _validate_template(cls, value: str) -> str:
         if not value:
-            raise ValueError("El template no puede estar vacío.")
+            raise ValueError("Template cannot be empty.")
         return value
 
     def resolve_template(self, profiles=None) -> str:
@@ -227,7 +227,7 @@ def load_run_config(path: Path) -> dict:
     Profile *definitions* live in code (BUILTIN_PROFILES / DEFAULT_ROUTING).
     """
     if not path.exists():
-        logger.debug("El archivo de configuración %s no existe.", path)
+        logger.debug("Configuration file %s does not exist.", path)
         return {}
 
     with path.open("r", encoding="utf-8") as handle:
@@ -235,7 +235,7 @@ def load_run_config(path: Path) -> dict:
             raw = yaml.safe_load(handle) or {}
         except yaml.YAMLError as exc:
             raise ValueError(
-                f"Error al leer el archivo de configuración '{path}': {exc}"
+                f"Failed to read configuration file '{path}': {exc}"
             ) from exc
 
     config: dict = {}
@@ -266,7 +266,7 @@ def load_run_config(path: Path) -> dict:
             # Normalize alias → canonical key
             canonical = _ROUTING_KEY_ALIASES.get(raw_name, raw_name)
             if canonical not in ROUTING_KEYS:
-                logger.warning("Routing key desconocido en config: '%s' (ignorado).", raw_name)
+                logger.warning("Unknown routing key in config: '%s' (skipped).", raw_name)
                 continue
             if tmpl:
                 routing[canonical] = tmpl
