@@ -90,3 +90,6 @@ junit-*
 # data
 data/
 data_output/
+
+# claude.md
+CLAUDE.md
