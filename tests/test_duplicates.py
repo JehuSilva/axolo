@@ -8,13 +8,13 @@ from unittest.mock import patch
 
 import pytest
 
-from media_organizer.duplicates import (
+from axolo.duplicates import (
     ActionOutcome,
     DuplicateActionError,
     DuplicateAnalyzer,
     apply_duplicate_actions,
 )
-from media_organizer.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
+from axolo.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
 
 
 # ---------------------------------------------------------------------------
@@ -91,14 +91,14 @@ def test_size_prefilter_skips_hashing_for_unique_sizes(tmp_path):
     hash_call_count = []
 
     original_hash_file = __import__(
-        "media_organizer.duplicates", fromlist=["_hash_file"]
+        "axolo.duplicates", fromlist=["_hash_file"]
     )._hash_file
 
     def counting_hash(path, algorithm, chunk_size):
         hash_call_count.append(path)
         return original_hash_file(path, algorithm, chunk_size)
 
-    with patch("media_organizer.duplicates._hash_file", side_effect=counting_hash):
+    with patch("axolo.duplicates._hash_file", side_effect=counting_hash):
         report = DuplicateAnalyzer().analyze(items)
 
     assert len(hash_call_count) == 0, "No files should be hashed when no sizes match"
@@ -303,7 +303,7 @@ def test_action_link_hard_replaces_duplicate(tmp_path):
 
 def test_move_requires_quarantine():
     """apply_duplicate_actions raises DuplicateActionError when move lacks quarantine."""
-    from media_organizer.duplicates import DuplicatesReport
+    from axolo.duplicates import DuplicatesReport
 
     empty_report = DuplicatesReport(
         groups=[], processed=0, scanned=0, skipped=0, hashed_bytes=0, algorithm="blake2b"

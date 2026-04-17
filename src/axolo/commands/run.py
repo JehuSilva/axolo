@@ -3,6 +3,6 @@
 from __future__ import annotations
 
 # Re-exported so tests and external code can import directly from this module.
-from media_organizer.cli import run as command  # noqa: F401
+from axolo.cli import run as command  # noqa: F401
 
 __all__ = ["command"]

@@ -1,6 +1,6 @@
 """Interactive terminal wizard using questionary + Rich.
 
-Entry point: ``media-organizer tui`` (no arguments).
+Entry point: ``axolo tui`` (no arguments).
 
 Main menu offers:
   1. Organizar     — guides the user through the ``run`` command
@@ -121,7 +121,7 @@ def _wizard_run() -> None:
     from .config import DEFAULT_ROUTING, OrganizerConfig, ROUTING_SUBFOLDERS, load_run_config
     from .logging_setup import setup_logging
     from .media_scanner import ScanOptions, iter_media_files
-    from .organizer import MediaOrganizer
+    from .organizer import AxoloOrganizer
 
     console.rule("[bold cyan]Organizar archivos multimedia")
 
@@ -223,7 +223,7 @@ def _wizard_run() -> None:
         routing=routing,
         routing_filename_templates=routing_filename_templates,
     )
-    organizer = MediaOrganizer(config=config, workers=workers)
+    organizer = AxoloOrganizer(config=config, workers=workers)
     summary = organizer.organize(files)
 
     counts = summary.status_counts()
@@ -458,7 +458,7 @@ def run_tui() -> None:
     """Launch the interactive TUI wizard."""
     _require_questionary()
 
-    console.rule("[bold green]media-organizer — Asistente interactivo")
+    console.rule("[bold green]Axolo Data — Asistente interactivo")
 
     MENU_CHOICES = [
         "Organizar archivos",

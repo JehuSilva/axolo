@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the media-organizer test suite."""
+"""Shared pytest fixtures for the axolo test suite."""
 from __future__ import annotations
 
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from media_organizer.journal import Journal
+from axolo.journal import Journal
 
 
 @pytest.fixture()
@@ -57,7 +57,7 @@ def journal_db(tmp_path: Path) -> Journal:
 
 @pytest.fixture()
 def monkeypatch_home(tmp_path: Path, monkeypatch) -> Path:
-    """Redirect ~/.media-organizer to a temp directory.
+    """Redirect ~/.axolo to a temp directory.
 
     Returns the temp home substitute so tests can inspect files written there.
     """
@@ -65,7 +65,7 @@ def monkeypatch_home(tmp_path: Path, monkeypatch) -> Path:
     fake_home.mkdir()
     monkeypatch.setenv("HOME", str(fake_home))
     # Also redirect the journal env var so Journal() uses the temp path
-    journal_dir = fake_home / ".media-organizer"
+    journal_dir = fake_home / ".axolo"
     journal_dir.mkdir(parents=True)
-    monkeypatch.setenv("MEDIA_ORGANIZER_JOURNAL", str(journal_dir / "journal.db"))
+    monkeypatch.setenv("AXOLO_JOURNAL", str(journal_dir / "journal.db"))
     return fake_home

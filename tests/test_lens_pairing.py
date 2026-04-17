@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from media_organizer.lens_pairing import deduplicate_assets, group_by_asset, pair_key
-from media_organizer.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
+from axolo.lens_pairing import deduplicate_assets, group_by_asset, pair_key
+from axolo.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
 
 
 def _make_meta(filename: str, media_type: MediaType = MediaType.VIDEO) -> MediaMetadata:

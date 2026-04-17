@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from media_organizer.config import (
+from axolo.config import (
     BUILTIN_PROFILES,
     OrganizerConfig,
     load_run_config,
 )
-from media_organizer.templates import DEFAULT_TEMPLATES
+from axolo.templates import DEFAULT_TEMPLATES
 
 
 def test_builtin_profiles_include_music_with_filename_template():

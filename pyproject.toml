@@ -3,11 +3,11 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "media-organizer"
+name = "axolo-data"
 version = "0.1.0"
-description = "Automatic media organizer for photos, videos, audio and documents with configurable templates."
+description = "Axolo Data — regenera el orden de tus archivos multimedia con plantillas configurables."
 authors = [
-  { name = "Media Organizer Team" }
+  { name = "Axolo Data" }
 ]
 license = { text = "MIT" }
 readme = "README.md"
@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-media-organizer = "media_organizer.cli:app"
+axolo = "axolo.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]

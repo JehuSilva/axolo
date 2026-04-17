@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from media_organizer.metadata import (
+from axolo.metadata import (
     MediaType,
     TimestampSource,
     detect_media_type,

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from media_organizer.metadata import (
+from axolo.metadata import (
     MediaCategory,
     MediaType,
     TimestampSource,
@@ -393,82 +393,82 @@ def test_extract_metadata_other_type(tmp_path: Path):
 
 
 def test_parse_flexible_datetime_valid():
-    from media_organizer.metadata import _parse_flexible_datetime
+    from axolo.metadata import _parse_flexible_datetime
     result = _parse_flexible_datetime("2023-08-15T10:00:00Z")
     assert result is not None
     assert result.year == 2023
 
 
 def test_parse_flexible_datetime_empty():
-    from media_organizer.metadata import _parse_flexible_datetime
+    from axolo.metadata import _parse_flexible_datetime
     assert _parse_flexible_datetime("") is None
     assert _parse_flexible_datetime("   ") is None
 
 
 def test_parse_exif_datetime_valid():
-    from media_organizer.metadata import _parse_exif_datetime
+    from axolo.metadata import _parse_exif_datetime
     result = _parse_exif_datetime("2024:06:15 14:30:00")
     assert result is not None
     assert result.year == 2024
 
 
 def test_parse_exif_datetime_invalid():
-    from media_organizer.metadata import _parse_exif_datetime
+    from axolo.metadata import _parse_exif_datetime
     assert _parse_exif_datetime("not a date") is None
 
 
 def test_parse_pdf_date_with_d_prefix():
-    from media_organizer.metadata import _parse_pdf_date
+    from axolo.metadata import _parse_pdf_date
     result = _parse_pdf_date("D:20220801120000")
     assert result is not None
     assert result.year == 2022
 
 
 def test_parse_pdf_date_empty():
-    from media_organizer.metadata import _parse_pdf_date
+    from axolo.metadata import _parse_pdf_date
     assert _parse_pdf_date("") is None
 
 
 def test_normalize_tag_value_string():
-    from media_organizer.metadata import _normalize_tag_value
+    from axolo.metadata import _normalize_tag_value
     assert _normalize_tag_value("  hello  ") == "hello"
 
 
 def test_normalize_tag_value_bytes():
-    from media_organizer.metadata import _normalize_tag_value
+    from axolo.metadata import _normalize_tag_value
     assert _normalize_tag_value(b"hello") == "hello"
 
 
 def test_normalize_tag_value_list():
-    from media_organizer.metadata import _normalize_tag_value
+    from axolo.metadata import _normalize_tag_value
     assert _normalize_tag_value(["first", "second"]) == "first"
 
 
 def test_normalize_tag_value_none():
-    from media_organizer.metadata import _normalize_tag_value
+    from axolo.metadata import _normalize_tag_value
     assert _normalize_tag_value(None) is None
 
 
 def test_normalize_tag_value_empty_string():
-    from media_organizer.metadata import _normalize_tag_value
+    from axolo.metadata import _normalize_tag_value
     assert _normalize_tag_value("   ") is None
 
 
 def test_parse_timestamp_from_filename_valid():
-    from media_organizer.metadata import _parse_timestamp_from_filename
+    from axolo.metadata import _parse_timestamp_from_filename
     result = _parse_timestamp_from_filename("IMG_20230615_143022")
     if result is not None:
         assert result.year == 2023
 
 
 def test_parse_timestamp_from_filename_invalid_year():
-    from media_organizer.metadata import _parse_timestamp_from_filename
+    from axolo.metadata import _parse_timestamp_from_filename
     result = _parse_timestamp_from_filename("IMG_19600101_120000")
     assert result is None
 
 
 def test_clean_string():
-    from media_organizer.metadata import _clean_string
+    from axolo.metadata import _clean_string
     assert _clean_string("  Canon  ") == "Canon"
     assert _clean_string("") is None
     assert _clean_string(None) is None

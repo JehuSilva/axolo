@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from media_organizer.cli import app
-from media_organizer.tui import _require_questionary
+from axolo.cli import app
+from axolo.tui import _require_questionary
 
 
 def test_tui_command_registered():
@@ -23,12 +23,12 @@ def test_require_questionary_does_not_raise_when_available():
 
 
 def test_tui_module_imports_cleanly():
-    import media_organizer.tui as tui
+    import axolo.tui as tui
     assert callable(tui.run_tui)
 
 
 def test_wizard_run_invokes_organizer(tmp_path: Path):
-    """_wizard_run should call MediaOrganizer.organize when user confirms."""
+    """_wizard_run should call AxoloOrganizer.organize when user confirms."""
     src = tmp_path / "src"
     src.mkdir()
     (src / "photo.jpg").write_bytes(b"\xff\xd8\xff" + b"\x00" * 50)
@@ -58,7 +58,7 @@ def test_wizard_run_invokes_organizer(tmp_path: Path):
         mock_text.return_value.ask.return_value = "1"
         mock_confirm.return_value.ask.side_effect = [True, False, True]  # dry_run, customize=No, confirmed
 
-        from media_organizer.tui import _wizard_run
+        from axolo.tui import _wizard_run
         _wizard_run()  # should not raise
 
 
@@ -77,7 +77,7 @@ def test_wizard_duplicates_no_files(tmp_path: Path):
         mock_select.return_value.ask.return_value = "blake2b"
         mock_text.return_value.ask.return_value = "1"
 
-        from media_organizer.tui import _wizard_duplicates
+        from axolo.tui import _wizard_duplicates
         _wizard_duplicates()  # should not raise
 
 
@@ -99,18 +99,18 @@ def test_wizard_sync_no_files(tmp_path: Path):
         mock_text.return_value.ask.return_value = "1"
         mock_confirm.return_value.ask.return_value = True
 
-        from media_organizer.tui import _wizard_sync
+        from axolo.tui import _wizard_sync
         _wizard_sync()  # should not raise
 
 
 def test_wizard_history_no_runs(tmp_path: Path, monkeypatch):
     """_wizard_history exits gracefully when journal is empty."""
-    from media_organizer.journal import Journal
+    from axolo.journal import Journal
 
     db = tmp_path / "journal.db"
-    monkeypatch.setenv("MEDIA_ORGANIZER_JOURNAL", str(db))
+    monkeypatch.setenv("AXOLO_JOURNAL", str(db))
 
-    from media_organizer.tui import _wizard_history
+    from axolo.tui import _wizard_history
     _wizard_history()  # should not raise — no runs → prints message and returns
 
 
@@ -121,5 +121,5 @@ def test_run_tui_exits_on_salir(monkeypatch):
     with patch.object(q, "select") as mock_select:
         mock_select.return_value.ask.return_value = "Salir"
 
-        from media_organizer.tui import run_tui
+        from axolo.tui import run_tui
         run_tui()  # should not raise or hang

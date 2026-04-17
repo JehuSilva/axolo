@@ -12,9 +12,9 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from media_organizer.cli import app
-from media_organizer.journal import Journal
-from media_organizer.parallel import parallel_map
+from axolo.cli import app
+from axolo.journal import Journal
+from axolo.parallel import parallel_map
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ def test_journal_last_revertible_run_id(journal: Journal, tmp_path: Path):
 
 def test_journal_env_var_override(tmp_path: Path, monkeypatch):
     db = tmp_path / "custom.db"
-    monkeypatch.setenv("MEDIA_ORGANIZER_JOURNAL", str(db))
+    monkeypatch.setenv("AXOLO_JOURNAL", str(db))
     j = Journal()
     try:
         assert j._path == db
@@ -168,9 +168,9 @@ def runner():
 
 @pytest.fixture()
 def journal_env(tmp_path: Path, monkeypatch):
-    """Point MEDIA_ORGANIZER_JOURNAL to a tmp path for CLI tests."""
+    """Point AXOLO_JOURNAL to a tmp path for CLI tests."""
     db = tmp_path / "journal.db"
-    monkeypatch.setenv("MEDIA_ORGANIZER_JOURNAL", str(db))
+    monkeypatch.setenv("AXOLO_JOURNAL", str(db))
     return tmp_path
 
 

@@ -81,7 +81,7 @@ class OrganizeSummary:
         self.results.append(result)
 
 
-class MediaOrganizer:
+class AxoloOrganizer:
     def __init__(
         self,
         config: OrganizerConfig,

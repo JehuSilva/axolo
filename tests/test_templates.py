@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from media_organizer.metadata import MediaCategory, MediaMetadata, MediaType
-from media_organizer.templates import render_template
+from axolo.metadata import MediaCategory, MediaMetadata, MediaType
+from axolo.templates import render_template
 
 
 def build_metadata(path: Path) -> MediaMetadata:

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from typer.testing import CliRunner
 
-from media_organizer.cli import app
-from media_organizer.commands._shared import (
+from axolo.cli import app
+from axolo.commands._shared import (
     collect_metadata,
     humanize_bytes,
     parse_extra,
@@ -16,8 +16,8 @@ from media_organizer.commands._shared import (
     render_summary,
     validate_workers,
 )
-from media_organizer.organizer import OrganizeSummary, FileResult
-from media_organizer.metadata import MediaCategory
+from axolo.organizer import OrganizeSummary, FileResult
+from axolo.metadata import MediaCategory
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +159,7 @@ def test_journal_db_fixture(journal_db):
 def test_monkeypatch_home_fixture(monkeypatch_home):
     import os
     assert os.environ["HOME"] == str(monkeypatch_home)
-    from media_organizer.journal import Journal
+    from axolo.journal import Journal
     j = Journal()
     try:
         assert "fake_home" in str(j._path)
@@ -278,7 +278,7 @@ def test_help_shows_all_commands(runner):
 
 
 def test_commands_package_imports():
-    from media_organizer.commands import run, duplicates, undo, sync_cmd, tui_cmd
+    from axolo.commands import run, duplicates, undo, sync_cmd, tui_cmd
     assert callable(run.command)
     assert callable(duplicates.command)
     assert callable(undo.command)
@@ -292,7 +292,7 @@ def test_commands_package_imports():
 
 
 def test_i18n_month_names():
-    from media_organizer.i18n import MONTH_NAMES_ES, MONTH_NAMES_ES_SHORT, MONTH_NAMES_ES_CAP
+    from axolo.i18n import MONTH_NAMES_ES, MONTH_NAMES_ES_SHORT, MONTH_NAMES_ES_CAP
     assert MONTH_NAMES_ES[1] == "enero"
     assert MONTH_NAMES_ES[12] == "diciembre"
     assert MONTH_NAMES_ES_SHORT[4] == "abr"
@@ -300,5 +300,5 @@ def test_i18n_month_names():
 
 
 def test_templates_uses_i18n():
-    from media_organizer.templates import MONTH_NAMES_ES
+    from axolo.templates import MONTH_NAMES_ES
     assert MONTH_NAMES_ES[1] == "enero"

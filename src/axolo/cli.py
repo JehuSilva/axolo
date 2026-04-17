@@ -1,4 +1,4 @@
-"""Command line interface for the media organizer."""
+"""Axolo Data — interfaz de línea de comandos."""
 
 from __future__ import annotations
 
@@ -33,12 +33,12 @@ from .journal import Journal
 from .logging_setup import setup_logging
 from .media_scanner import ScanOptions, iter_media_files
 from .metadata import MediaMetadata, extract_metadata
-from .organizer import MediaOrganizer, _safe_move
+from .organizer import AxoloOrganizer, _safe_move
 from .sync import apply_sync, plan_sync
 from .templates import DEFAULT_TEMPLATES
 
 logger = logging.getLogger(__name__)
-app = typer.Typer(add_completion=False, help="Organiza fotos y videos en carpetas.")
+app = typer.Typer(add_completion=False, help="Axolo Data · Regenera el orden de tus archivos multimedia.")
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ def run(
         raise typer.Exit(code=0)
 
     journal = Journal() if not no_journal else None
-    organizer = MediaOrganizer(
+    organizer = AxoloOrganizer(
         config=config,
         show_progress=show_progress,
         workers=workers,

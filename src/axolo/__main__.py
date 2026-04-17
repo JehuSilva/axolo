@@ -2,7 +2,7 @@ from .cli import app
 
 
 def main() -> None:
-    app(prog_name="media-organizer")
+    app(prog_name="axolo")
 
 
 if __name__ == "__main__":

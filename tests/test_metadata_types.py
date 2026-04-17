@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from media_organizer.metadata import MediaCategory, MediaType, detect_media_type, resolve_category
+from axolo.metadata import MediaCategory, MediaType, detect_media_type, resolve_category
 
 
 def test_detect_media_type_for_audio():

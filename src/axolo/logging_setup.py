@@ -1,8 +1,8 @@
-"""Logging configuration for media-organizer.
+"""Logging configuration for axolo.
 
 Sets up:
 - Console: RichHandler with coloured output (disabled in --quiet / --json-logs).
-- File:    RotatingFileHandler writing JSON Lines to ~/.media-organizer/logs/.
+- File:    RotatingFileHandler writing JSON Lines to ~/.axolo/logs/.
 - Each run gets a uuid4 correlation_id injected into every log record.
 """
 
@@ -17,8 +17,8 @@ from typing import Optional
 
 from rich.logging import RichHandler
 
-_LOG_DIR = Path.home() / ".media-organizer" / "logs"
-_LOG_FILE = "media-organizer.log"
+_LOG_DIR = Path.home() / ".axolo" / "logs"
+_LOG_FILE = "axolo.log"
 _MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 _BACKUP_COUNT = 5
 

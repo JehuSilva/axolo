@@ -22,24 +22,24 @@ pytest --ignore=tests/test_metadata_example_files.py --ignore=tests/test_metadat
 pytest tests/test_organizer.py
 
 # Run a specific test
-pytest tests/test_organizer.py::test_media_organizer_resolves_collisions
+pytest tests/test_organizer.py::test_axolo_resolves_collisions
 
 # Run with coverage
-pytest --cov=media_organizer --ignore=tests/test_metadata_example_files.py --ignore=tests/test_metadata_insta360.py
+pytest --cov=axolo --ignore=tests/test_metadata_example_files.py --ignore=tests/test_metadata_insta360.py
 
 # Run the CLI
-media-organizer run --source ~/Media --destination /mnt/organized --dry-run
-media-organizer duplicates --source ~/Media --algorithm blake2b --output duplicates.json
-media-organizer duplicates --source ~/Media --action move --quarantine ~/Media/_duplicados --dry-run
-media-organizer sync --source ~/NuevosArchivos --destination ~/Archivo --dry-run
-media-organizer undo --list
-media-organizer undo --run-id <uuid> --no-dry-run
-media-organizer tui
+axolo run --source ~/Media --destination /mnt/organized --dry-run
+axolo duplicates --source ~/Media --algorithm blake2b --output duplicates.json
+axolo duplicates --source ~/Media --action move --quarantine ~/Media/_duplicados --dry-run
+axolo sync --source ~/NuevosArchivos --destination ~/Archivo --dry-run
+axolo undo --list
+axolo undo --run-id <uuid> --no-dry-run
+axolo tui
 ```
 
 ## Architecture
 
-The package lives under `src/media_organizer/` and is installed as the `media-organizer` CLI entry point (`media_organizer.cli:app`).
+The package lives under `src/axolo/` and is installed as the `axolo` CLI entry point (`axolo.cli:app`).
 
 ### Module map
 
@@ -52,13 +52,13 @@ The package lives under `src/media_organizer/` and is installed as the `media-or
 | `metadata.py` | `extract_metadata()` — detects media type, extracts timestamps via EXIF/ffprobe/QuickTime/mutagen/pypdf; falls back to filename pattern then filesystem mtime |
 | `templates.py` | `render_template()` / `render_filename()` — formats paths from `MediaMetadata` using `{placeholder}` strings |
 | `i18n.py` | Spanish month name lists (`MONTH_NAMES_ES`, `MONTH_NAMES_ES_SHORT`, `MONTH_NAMES_ES_CAP`); imported by `templates.py` |
-| `organizer.py` | `MediaOrganizer.organize()` — 3-phase pipeline: parallel metadata extraction → serial destination resolution (collision-safe) → parallel file actions (move/copy/link) |
+| `organizer.py` | `AxoloOrganizer.organize()` — 3-phase pipeline: parallel metadata extraction → serial destination resolution (collision-safe) → parallel file actions (move/copy/link) |
 | `config.py` | `OrganizerConfig` (Pydantic v2), `BUILTIN_PROFILES`, routing constants (`ROUTING_KEYS`, `ROUTING_SUBFOLDERS`, `DEFAULT_ROUTING`) |
 | `duplicates.py` | `DuplicateAnalyzer` — size-group then parallel hash to find byte-identical files; `apply_duplicate_actions` — move/link/delete non-canonical copies |
 | `sync.py` | `plan_sync()` / `apply_sync()` — union dedup-aware sync: hashes destination, copies only new content, renames name-collisions with `_<hash8>` suffix |
-| `journal.py` | SQLite-backed operation log at `~/.media-organizer/journal.db`; records every move/copy/link for `undo` |
+| `journal.py` | SQLite-backed operation log at `~/.axolo/journal.db`; records every move/copy/link for `undo` |
 | `parallel.py` | `parallel_map()` — `ThreadPoolExecutor` wrapper; returns results in input order; captures per-item exceptions without aborting |
-| `logging_setup.py` | `setup_logging()` — `RichHandler` for console + rotating JSON Lines file handler at `~/.media-organizer/logs/`; injects `correlation_id` per run |
+| `logging_setup.py` | `setup_logging()` — `RichHandler` for console + rotating JSON Lines file handler at `~/.axolo/logs/`; injects `correlation_id` per run |
 | `lens_pairing.py` | Detects Insta360 dual-lens pairs (`_00_`/`_10_` pattern); `deduplicate_assets()` collapses them to one asset |
 | `tui.py` | Interactive wizard (`questionary` + Rich): menus for run/duplicates/sync/history-undo |
 
@@ -92,7 +92,7 @@ The package lives under `src/media_organizer/` and is installed as the `media-or
 - **Cross-device move**: `_safe_move` tries `os.rename` first; on `EXDEV` falls back to `copy2+fsync+os.replace+unlink` with temp-file cleanup on failure.
 - **Canonical selection**: `_pick_canonical` uses `(prefer_under, oldest_mtime, lexicographic_path)` — not path length, which could delete the original when a copy has a shorter path.
 - **dry_run flag**: `_resolve_destination` skips `mkdir` when `dry_run=True` so no directories are created during preview.
-- **Journal**: append-only SQLite at `~/.media-organizer/journal.db` (override with `MEDIA_ORGANIZER_JOURNAL`). Only non-dry-run, successful actions are recorded.
+- **Journal**: append-only SQLite at `~/.axolo/journal.db` (override with `AXOLO_JOURNAL`). Only non-dry-run, successful actions are recorded.
 - **Timestamps**: EXIF timestamps are naive local time (no timezone). Year validation rejects values outside `[1970, current_year+1]`.
 - **360 camera**: `.insp`/`.insv` set `is_panoramic=True`; organizer routes them to `360/Fotos` or `360/Videos`. `.dng` is NOT treated as 360 (common misclassification fixed).
 - **Month names**: defined in `i18n.py`, imported by `templates.py`. Locale is Spanish; structure is ready for future locales.
@@ -104,7 +104,7 @@ Test files follow the naming pattern `tests/test_<module>.py`. Shared fixtures l
 
 - `media_tree(tmp_path)` — synthetic media file tree (jpg, mp4, mp3, pdf).
 - `journal_db(tmp_path)` — isolated Journal backed by a temp SQLite file.
-- `monkeypatch_home(tmp_path)` — redirects `~/.media-organizer` and `MEDIA_ORGANIZER_JOURNAL` to a temp path.
+- `monkeypatch_home(tmp_path)` — redirects `~/.axolo` and `AXOLO_JOURNAL` to a temp path.
 
 Tests that need real media files or `ffprobe` live in `test_metadata_example_files.py` and `test_metadata_insta360.py` — these are ignored in the standard CI run.
 

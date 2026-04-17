@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 
 from typer.testing import CliRunner
 
-from media_organizer.cli import app
-from media_organizer.duplicates import DuplicateAnalyzer, DuplicatesReport, DuplicateGroup, DuplicateFile
-from media_organizer.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
+from axolo.cli import app
+from axolo.duplicates import DuplicateAnalyzer, DuplicatesReport, DuplicateGroup, DuplicateFile
+from axolo.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
 
 
 def test_duplicates_command_shows_groups(tmp_path, monkeypatch):
@@ -46,8 +46,8 @@ def test_duplicates_command_shows_groups(tmp_path, monkeypatch):
                 groups=[group], processed=2, scanned=2, skipped=0, hashed_bytes=24, algorithm="blake2b"
             )
 
-    monkeypatch.setattr("media_organizer.cli.extract_metadata", fake_extract)
-    monkeypatch.setattr("media_organizer.cli.DuplicateAnalyzer", DummyDuplicateAnalyzer)
+    monkeypatch.setattr("axolo.cli.extract_metadata", fake_extract)
+    monkeypatch.setattr("axolo.cli.DuplicateAnalyzer", DummyDuplicateAnalyzer)
 
     runner = CliRunner()
     result = runner.invoke(app, ["duplicates", "--source", str(source)])
@@ -95,8 +95,8 @@ def test_duplicates_command_exports_json(tmp_path, monkeypatch):
                 groups=[group], processed=2, scanned=2, skipped=0, hashed_bytes=6, algorithm="blake2b"
             )
 
-    monkeypatch.setattr("media_organizer.cli.extract_metadata", fake_extract)
-    monkeypatch.setattr("media_organizer.cli.DuplicateAnalyzer", DummyDuplicateAnalyzer)
+    monkeypatch.setattr("axolo.cli.extract_metadata", fake_extract)
+    monkeypatch.setattr("axolo.cli.DuplicateAnalyzer", DummyDuplicateAnalyzer)
 
     output_file = tmp_path / "report.json"
     runner = CliRunner()

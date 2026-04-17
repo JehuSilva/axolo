@@ -2,10 +2,10 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from media_organizer.config import OrganizerConfig
-from media_organizer.media_scanner import ScanOptions, iter_media_files
-from media_organizer.organizer import MediaOrganizer
-from media_organizer.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
+from axolo.config import OrganizerConfig
+from axolo.media_scanner import ScanOptions, iter_media_files
+from axolo.organizer import AxoloOrganizer
+from axolo.metadata import MediaCategory, MediaMetadata, MediaType, TimestampSource
 
 
 def _set_file_timestamp(path: Path, dt: datetime) -> None:
@@ -39,7 +39,7 @@ def test_media_organizer_resolves_collisions(tmp_path, monkeypatch):
             timestamp_source=TimestampSource.METADATA,
         )
 
-    monkeypatch.setattr("media_organizer.organizer.extract_metadata", fake_extract)
+    monkeypatch.setattr("axolo.organizer.extract_metadata", fake_extract)
 
     config = OrganizerConfig(
         source=source,
@@ -49,7 +49,7 @@ def test_media_organizer_resolves_collisions(tmp_path, monkeypatch):
         dry_run=False,
     )
 
-    organizer = MediaOrganizer(config=config)
+    organizer = AxoloOrganizer(config=config)
     files = list(iter_media_files(source, ScanOptions(recursive=True)))
     summary = organizer.organize(files)
 
@@ -81,7 +81,7 @@ def test_media_organizer_routes_panoramic_video_to_360_videos(tmp_path, monkeypa
             is_panoramic=True,
         )
 
-    monkeypatch.setattr("media_organizer.organizer.extract_metadata", fake_extract)
+    monkeypatch.setattr("axolo.organizer.extract_metadata", fake_extract)
 
     config = OrganizerConfig(
         source=source,
@@ -91,7 +91,7 @@ def test_media_organizer_routes_panoramic_video_to_360_videos(tmp_path, monkeypa
         dry_run=True,
     )
 
-    organizer = MediaOrganizer(config=config)
+    organizer = AxoloOrganizer(config=config)
     files = list(iter_media_files(source, ScanOptions(recursive=True)))
     summary = organizer.organize(files)
 
@@ -121,7 +121,7 @@ def test_media_organizer_routes_panoramic_photo_to_360_fotos(tmp_path, monkeypat
             is_panoramic=True,
         )
 
-    monkeypatch.setattr("media_organizer.organizer.extract_metadata", fake_extract)
+    monkeypatch.setattr("axolo.organizer.extract_metadata", fake_extract)
 
     config = OrganizerConfig(
         source=source,
@@ -131,7 +131,7 @@ def test_media_organizer_routes_panoramic_photo_to_360_fotos(tmp_path, monkeypat
         dry_run=True,
     )
 
-    organizer = MediaOrganizer(config=config)
+    organizer = AxoloOrganizer(config=config)
     files = list(iter_media_files(source, ScanOptions(recursive=True)))
     summary = organizer.organize(files)
 
@@ -160,7 +160,7 @@ def test_media_organizer_sends_unreliable_files_to_unknown(tmp_path, monkeypatch
             timestamp_source=TimestampSource.FILE_MODIFICATION,
         )
 
-    monkeypatch.setattr("media_organizer.organizer.extract_metadata", fake_extract)
+    monkeypatch.setattr("axolo.organizer.extract_metadata", fake_extract)
 
     config = OrganizerConfig(
         source=source,
@@ -170,7 +170,7 @@ def test_media_organizer_sends_unreliable_files_to_unknown(tmp_path, monkeypatch
         dry_run=True,
     )
 
-    organizer = MediaOrganizer(config=config)
+    organizer = AxoloOrganizer(config=config)
     files = list(iter_media_files(source, ScanOptions(recursive=True)))
     summary = organizer.organize(files)
 

@@ -41,7 +41,7 @@ def _seconds_since_1904(year: int, month: int, day: int) -> int:
 
 
 def test_parse_quicktime_stream_valid(tmp_path: Path):
-    from media_organizer.metadata import _extract_quicktime_creation
+    from axolo.metadata import _extract_quicktime_creation
 
     mvhd_payload = _make_mvhd_v0(_seconds_since_1904(2022, 5, 10))
     mvhd_atom = _make_atom(b"mvhd", mvhd_payload)
@@ -58,7 +58,7 @@ def test_parse_quicktime_stream_valid(tmp_path: Path):
 
 
 def test_parse_quicktime_stream_no_moov(tmp_path: Path):
-    from media_organizer.metadata import _extract_quicktime_creation
+    from axolo.metadata import _extract_quicktime_creation
 
     ftyp = _make_atom(b"ftyp", b"\x00" * 4)
     mov_path = tmp_path / "clip.mov"
@@ -69,7 +69,7 @@ def test_parse_quicktime_stream_no_moov(tmp_path: Path):
 
 
 def test_parse_quicktime_stream_truncated(tmp_path: Path):
-    from media_organizer.metadata import _extract_quicktime_creation
+    from axolo.metadata import _extract_quicktime_creation
 
     mov_path = tmp_path / "clip.mov"
     mov_path.write_bytes(b"\x00\x00")  # truncated header
@@ -80,7 +80,7 @@ def test_parse_quicktime_stream_truncated(tmp_path: Path):
 
 def test_parse_quicktime_moov_with_trak(tmp_path: Path):
     """moov atom containing trak → tkhd → no valid date."""
-    from media_organizer.metadata import _extract_quicktime_creation
+    from axolo.metadata import _extract_quicktime_creation
 
     tkhd_payload = b"\x00" * 100
     tkhd_atom = _make_atom(b"tkhd", tkhd_payload)
@@ -114,7 +114,7 @@ def _make_docx_with_date(date_str: str) -> bytes:
 
 
 def test_extract_office_docx_with_date(tmp_path: Path):
-    from media_organizer.metadata import extract_metadata
+    from axolo.metadata import extract_metadata
 
     docx_path = tmp_path / "document.docx"
     docx_path.write_bytes(_make_docx_with_date("2021-11-05T09:00:00Z"))
@@ -125,7 +125,7 @@ def test_extract_office_docx_with_date(tmp_path: Path):
 
 
 def test_extract_office_docx_no_core_xml(tmp_path: Path):
-    from media_organizer.metadata import _extract_document_metadata
+    from axolo.metadata import _extract_document_metadata
 
     docx_path = tmp_path / "empty.docx"
     buf = io.BytesIO()
@@ -139,7 +139,7 @@ def test_extract_office_docx_no_core_xml(tmp_path: Path):
 
 def test_extract_document_not_pdf_not_office(tmp_path: Path):
     """A .txt file would route through DOCUMENT but have no extractor."""
-    from media_organizer.metadata import _extract_document_metadata
+    from axolo.metadata import _extract_document_metadata
     txt = tmp_path / "file.txt"
     txt.write_bytes(b"hello")
     captured_at, source = _extract_document_metadata(txt)
@@ -153,7 +153,7 @@ def test_extract_document_not_pdf_not_office(tmp_path: Path):
 
 
 def test_audio_with_date_tag(tmp_path: Path):
-    from media_organizer.metadata import _extract_audio_metadata
+    from axolo.metadata import _extract_audio_metadata
 
     mp3 = tmp_path / "track.mp3"
     mp3.write_bytes(b"\xff\xfb\x90\x00" + b"\x00" * 100)
@@ -185,8 +185,8 @@ def test_audio_with_date_tag(tmp_path: Path):
 
 
 def test_organizer_link_hard(tmp_path: Path):
-    from media_organizer.config import OrganizerConfig
-    from media_organizer.organizer import MediaOrganizer
+    from axolo.config import OrganizerConfig
+    from axolo.organizer import AxoloOrganizer
 
     src = tmp_path / "src"
     dst = tmp_path / "dst"
@@ -197,14 +197,14 @@ def test_organizer_link_hard(tmp_path: Path):
         source=src, destination=dst,
         action="link", link_kind="hard", template="default", dry_run=False
     )
-    organizer = MediaOrganizer(config, show_progress=False, workers=1)
+    organizer = AxoloOrganizer(config, show_progress=False, workers=1)
     summary = organizer.organize(list(src.iterdir()))
     assert summary.linked >= 1 or summary.failed >= 0  # hard link on same FS should work
 
 
 def test_organizer_link_symbolic(tmp_path: Path):
-    from media_organizer.config import OrganizerConfig
-    from media_organizer.organizer import MediaOrganizer
+    from axolo.config import OrganizerConfig
+    from axolo.organizer import AxoloOrganizer
 
     src = tmp_path / "src"
     dst = tmp_path / "dst"
@@ -215,14 +215,14 @@ def test_organizer_link_symbolic(tmp_path: Path):
         source=src, destination=dst,
         action="link", link_kind="symbolic", template="default", dry_run=False
     )
-    organizer = MediaOrganizer(config, show_progress=False, workers=1)
+    organizer = AxoloOrganizer(config, show_progress=False, workers=1)
     summary = organizer.organize(list(src.iterdir()))
     assert summary.linked >= 1 or summary.failed >= 0
 
 
 def test_organizer_failed_on_bad_file(tmp_path: Path):
-    from media_organizer.config import OrganizerConfig
-    from media_organizer.organizer import MediaOrganizer
+    from axolo.config import OrganizerConfig
+    from axolo.organizer import AxoloOrganizer
     from pathlib import Path
 
     src = tmp_path / "src"
@@ -233,7 +233,7 @@ def test_organizer_failed_on_bad_file(tmp_path: Path):
         source=src, destination=dst,
         action="copy", template="default", dry_run=False
     )
-    organizer = MediaOrganizer(config, show_progress=False, workers=1)
+    organizer = AxoloOrganizer(config, show_progress=False, workers=1)
     # Pass a non-existent path to trigger failure
     nonexistent = src / "ghost.jpg"
     summary = organizer.organize([nonexistent])
@@ -246,7 +246,7 @@ def test_organizer_failed_on_bad_file(tmp_path: Path):
 
 
 def test_media_scanner_no_follow_symlinks(tmp_path: Path):
-    from media_organizer.media_scanner import ScanOptions, iter_media_files
+    from axolo.media_scanner import ScanOptions, iter_media_files
 
     src = tmp_path / "src"
     src.mkdir()
@@ -264,7 +264,7 @@ def test_media_scanner_no_follow_symlinks(tmp_path: Path):
 
 
 def test_media_scanner_include_ext(tmp_path: Path):
-    from media_organizer.media_scanner import ScanOptions, iter_media_files
+    from axolo.media_scanner import ScanOptions, iter_media_files
 
     src = tmp_path / "src"
     src.mkdir()
@@ -277,7 +277,7 @@ def test_media_scanner_include_ext(tmp_path: Path):
 
 
 def test_media_scanner_exclude_ext(tmp_path: Path):
-    from media_organizer.media_scanner import ScanOptions, iter_media_files
+    from axolo.media_scanner import ScanOptions, iter_media_files
 
     src = tmp_path / "src"
     src.mkdir()
@@ -296,7 +296,7 @@ def test_media_scanner_exclude_ext(tmp_path: Path):
 
 def test_cli_run_no_files(tmp_path, monkeypatch_home):
     from typer.testing import CliRunner
-    from media_organizer.cli import app
+    from axolo.cli import app
 
     src = tmp_path / "empty_src"
     src.mkdir()
@@ -313,7 +313,7 @@ def test_cli_run_no_files(tmp_path, monkeypatch_home):
 
 def test_cli_duplicates_with_move_action(tmp_path, monkeypatch_home):
     from typer.testing import CliRunner
-    from media_organizer.cli import app
+    from axolo.cli import app
 
     src = tmp_path / "src"
     quarantine = tmp_path / "quarantine"
@@ -336,11 +336,11 @@ def test_cli_duplicates_with_move_action(tmp_path, monkeypatch_home):
 
 def test_cli_undo_with_link_action(tmp_path, monkeypatch_home):
     """Journal entry with link action should be undoable."""
-    from media_organizer.journal import Journal
+    from axolo.journal import Journal
     import os
 
     db = tmp_path / "journal.db"
-    monkeypatch_home  # fixture ensures MEDIA_ORGANIZER_JOURNAL is set
+    monkeypatch_home  # fixture ensures AXOLO_JOURNAL is set
 
     j = Journal(path=db)
     run_id = j.start_run("run", dry_run=False)
@@ -361,9 +361,9 @@ def test_cli_undo_with_link_action(tmp_path, monkeypatch_home):
     j.close()
 
     from typer.testing import CliRunner
-    from media_organizer.cli import app
+    from axolo.cli import app
     import os
-    os.environ["MEDIA_ORGANIZER_JOURNAL"] = str(db)
+    os.environ["AXOLO_JOURNAL"] = str(db)
 
     runner = CliRunner()
     result = runner.invoke(app, ["undo", "--run-id", run_id, "--no-dry-run"])

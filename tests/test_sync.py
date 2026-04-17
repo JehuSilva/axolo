@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from media_organizer.cli import app
-from media_organizer.journal import Journal
-from media_organizer.metadata import extract_metadata
-from media_organizer.sync import SyncPlan, apply_sync, plan_sync
+from axolo.cli import app
+from axolo.journal import Journal
+from axolo.metadata import extract_metadata
+from axolo.sync import SyncPlan, apply_sync, plan_sync
 
 
 # ---------------------------------------------------------------------------
@@ -268,7 +268,7 @@ def runner():
 @pytest.fixture()
 def journal_env(tmp_path: Path, monkeypatch):
     db = tmp_path / "journal.db"
-    monkeypatch.setenv("MEDIA_ORGANIZER_JOURNAL", str(db))
+    monkeypatch.setenv("AXOLO_JOURNAL", str(db))
     return tmp_path
 
 

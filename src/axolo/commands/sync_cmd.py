@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from media_organizer.cli import sync as command  # noqa: F401
+from axolo.cli import sync as command  # noqa: F401
 
 __all__ = ["command"]

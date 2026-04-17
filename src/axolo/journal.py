@@ -1,10 +1,10 @@
 """SQLite-backed operation journal for reversible media operations.
 
 Every file action (move / copy / link) performed by the organizer is
-appended here so that ``media-organizer undo`` can replay it in reverse.
+appended here so that ``axolo undo`` can replay it in reverse.
 
-Default location: ``~/.media-organizer/journal.db``
-Override via env var: ``MEDIA_ORGANIZER_JOURNAL=/path/to/journal.db``
+Default location: ``~/.axolo/journal.db``
+Override via env var: ``AXOLO_JOURNAL=/path/to/journal.db``
 """
 
 from __future__ import annotations
@@ -20,8 +20,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_PATH = Path.home() / ".media-organizer" / "journal.db"
-_ENV_VAR = "MEDIA_ORGANIZER_JOURNAL"
+_DEFAULT_PATH = Path.home() / ".axolo" / "journal.db"
+_ENV_VAR = "AXOLO_JOURNAL"
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS runs (

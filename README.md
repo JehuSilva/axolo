@@ -1,6 +1,6 @@
-# Media Organizer
+# Axolo Data
 
-Automatic organizer for photos, videos, audio and documents with configurable destination templates.
+Axolo Data — regenera el orden de tus archivos multimedia con plantillas configurables.
 
 ## Características
 
@@ -46,13 +46,13 @@ pip install -e ".[dev]"     # incluye dependencias de desarrollo y pruebas
 
 ```bash
 # Con archivo de configuración
-media-organizer run --config config.yaml --dry-run
+axolo run --config config.yaml --dry-run
 
 # Sin archivo de configuración (el CLI solicita los campos faltantes)
-media-organizer run --source ~/Media --destination /mnt/organizado --dry-run
+axolo run --source ~/Media --destination /mnt/organizado --dry-run
 
 # Mover archivos reales con 8 hilos
-media-organizer run --source ~/Media --destination /mnt/organizado --action move --workers 8
+axolo run --source ~/Media --destination /mnt/organizado --action move --workers 8
 ```
 
 ### Flags principales
@@ -82,22 +82,22 @@ El flag `--dry-run` nunca modifica archivos. La salida muestra una tabla con el 
 
 ```bash
 # Solo detección (no modifica nada)
-media-organizer duplicates --source ~/Media
+axolo duplicates --source ~/Media
 
 # Guardar reporte JSON
-media-organizer duplicates --source ~/Media --output duplicates.json
+axolo duplicates --source ~/Media --output duplicates.json
 
 # Mover duplicados a cuarentena (dry-run activo por defecto)
-media-organizer duplicates --source ~/Media --action move --quarantine ~/Media/_dup --dry-run
+axolo duplicates --source ~/Media --action move --quarantine ~/Media/_dup --dry-run
 
 # Ejecutar movimiento real
-media-organizer duplicates --source ~/Media --action move --quarantine ~/Media/_dup --no-dry-run
+axolo duplicates --source ~/Media --action move --quarantine ~/Media/_dup --no-dry-run
 
 # Reemplazar duplicados con hard links
-media-organizer duplicates --source ~/Media --action link --no-dry-run
+axolo duplicates --source ~/Media --action link --no-dry-run
 
 # Priorizar archivos en un directorio específico como "canónico"
-media-organizer duplicates --source ~/Media --prefer-under ~/Media/Archivo
+axolo duplicates --source ~/Media --prefer-under ~/Media/Archivo
 ```
 
 ### Flags principales
@@ -130,13 +130,13 @@ Copia (o mueve) al destino únicamente el contenido que aún no existe allí, id
 
 ```bash
 # Ver qué se añadiría sin tocar nada
-media-organizer sync --source ~/NuevosArchivos --destination ~/Archivo --dry-run
+axolo sync --source ~/NuevosArchivos --destination ~/Archivo --dry-run
 
 # Sincronizar de verdad
-media-organizer sync --source ~/NuevosArchivos --destination ~/Archivo --action copy --no-dry-run
+axolo sync --source ~/NuevosArchivos --destination ~/Archivo --action copy --no-dry-run
 
 # Guardar el plan como JSON
-media-organizer sync --source ~/A --destination ~/B --output plan.json
+axolo sync --source ~/A --destination ~/B --output plan.json
 ```
 
 ### Política de resolución de conflictos
@@ -168,13 +168,13 @@ Revierte en orden inverso todas las operaciones de un `run`, `duplicates` o `syn
 
 ```bash
 # Ver los runs registrados en el journal
-media-organizer undo --list
+axolo undo --list
 
 # Previsualizar qué desharía el último run
-media-organizer undo --dry-run
+axolo undo --dry-run
 
 # Deshacer un run específico de verdad
-media-organizer undo --run-id <uuid> --no-dry-run
+axolo undo --run-id <uuid> --no-dry-run
 ```
 
 ### Qué puede y no puede deshacer
@@ -197,7 +197,7 @@ media-organizer undo --run-id <uuid> --no-dry-run
 
 ### Journal
 
-Las operaciones se guardan automáticamente en `~/.media-organizer/journal.db` (SQLite). Puedes cambiar la ruta con la variable de entorno `MEDIA_ORGANIZER_JOURNAL`.
+Las operaciones se guardan automáticamente en `~/.axolo/journal.db` (SQLite). Puedes cambiar la ruta con la variable de entorno `MEDIA_ORGANIZER_JOURNAL`.
 
 ---
 
@@ -206,7 +206,7 @@ Las operaciones se guardan automáticamente en `~/.media-organizer/journal.db` (
 Menú guiado que permite ejecutar cualquier comando sin recordar flags.
 
 ```bash
-media-organizer tui
+axolo tui
 ```
 
 El asistente ofrece:
@@ -375,7 +375,7 @@ No. El EXIF estándar almacena la hora local sin zona horaria. El organizador la
 
 ### ¿Dónde se guarda el journal?
 
-En `~/.media-organizer/journal.db`. Cambia la ruta con la variable de entorno `MEDIA_ORGANIZER_JOURNAL`.
+En `~/.axolo/journal.db`. Cambia la ruta con la variable de entorno `MEDIA_ORGANIZER_JOURNAL`.
 
 ### ¿Cómo desactivo el journal?
 
@@ -397,10 +397,10 @@ pytest
 pytest tests/test_organizer.py -v
 
 # Un test específico
-pytest tests/test_organizer.py::test_media_organizer_resolves_collisions
+pytest tests/test_organizer.py::test_axolo_resolves_collisions
 
 # Con cobertura
-pytest --cov=media_organizer
+pytest --cov=axolo
 
 # Ignorar tests que requieren archivos reales o ffprobe
 pytest --ignore=tests/test_metadata_example_files.py --ignore=tests/test_metadata_insta360.py

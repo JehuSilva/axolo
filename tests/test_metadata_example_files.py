@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from media_organizer.metadata import TimestampSource, extract_metadata
+from axolo.metadata import TimestampSource, extract_metadata
 
 
 @pytest.mark.parametrize(

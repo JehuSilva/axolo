@@ -10,18 +10,18 @@ from unittest.mock import patch
 
 import pytest
 
-from media_organizer.config import OrganizerConfig
-from media_organizer.duplicates import DuplicateAnalyzer, _pick_canonical
-from media_organizer.logging_setup import setup_logging
-from media_organizer.media_scanner import ScanOptions, iter_media_files
-from media_organizer.metadata import (
+from axolo.config import OrganizerConfig
+from axolo.duplicates import DuplicateAnalyzer, _pick_canonical
+from axolo.logging_setup import setup_logging
+from axolo.media_scanner import ScanOptions, iter_media_files
+from axolo.metadata import (
     MediaCategory,
     MediaMetadata,
     MediaType,
     TimestampSource,
     detect_media_type,
 )
-from media_organizer.organizer import MediaOrganizer, _safe_move
+from axolo.organizer import AxoloOrganizer, _safe_move
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ def test_dry_run_does_not_create_directories(tmp_path, monkeypatch):
 
     (source / "photo.jpg").write_bytes(b"x")
 
-    monkeypatch.setattr("media_organizer.organizer.extract_metadata", _fake_extract)
+    monkeypatch.setattr("axolo.organizer.extract_metadata", _fake_extract)
 
     config = OrganizerConfig(
         source=source,
@@ -62,7 +62,7 @@ def test_dry_run_does_not_create_directories(tmp_path, monkeypatch):
         template="default",
         dry_run=True,
     )
-    organizer = MediaOrganizer(config=config, show_progress=False)
+    organizer = AxoloOrganizer(config=config, show_progress=False)
     files = list(iter_media_files(source, ScanOptions()))
     organizer.organize(files)
 
@@ -117,7 +117,7 @@ def test_safe_move_cross_device_cleans_up_on_error(tmp_path):
         raise IOError("disk full simulation")
 
     with patch.object(Path, "rename", fake_rename), \
-         patch("media_organizer.organizer.shutil.copyfileobj", bad_copyfileobj):
+         patch("axolo.organizer.shutil.copyfileobj", bad_copyfileobj):
         with pytest.raises(IOError, match="disk full"):
             _safe_move(src, tmp_path / "dst.txt")
 
@@ -133,7 +133,7 @@ def test_safe_move_cross_device_cleans_up_on_error(tmp_path):
 def test_dng_is_not_panoramic(tmp_path):
     dng = tmp_path / "photo.dng"
     dng.write_bytes(b"")
-    from media_organizer.metadata import PANORAMIC_360_EXTENSIONS
+    from axolo.metadata import PANORAMIC_360_EXTENSIONS
     assert ".dng" not in PANORAMIC_360_EXTENSIONS
 
 
@@ -142,7 +142,7 @@ def test_dng_is_not_panoramic(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_filename_year_out_of_range_returns_no_match():
-    from media_organizer.metadata import _parse_timestamp_from_filename
+    from axolo.metadata import _parse_timestamp_from_filename
 
     # Future year far beyond current+1 should be rejected
     result = _parse_timestamp_from_filename("photo_29991231_120000.jpg")
@@ -154,7 +154,7 @@ def test_filename_year_out_of_range_returns_no_match():
 
 
 def test_filename_year_in_valid_range():
-    from media_organizer.metadata import _parse_timestamp_from_filename
+    from axolo.metadata import _parse_timestamp_from_filename
 
     result = _parse_timestamp_from_filename("IMG_20230615_123000")
     assert result is not None
@@ -167,7 +167,7 @@ def test_filename_year_in_valid_range():
 
 def test_cli_logger_defined():
     """cli.py must define module-level logger to avoid NameError on errors."""
-    import media_organizer.cli as cli_module
+    import axolo.cli as cli_module
     assert hasattr(cli_module, "logger")
     assert isinstance(cli_module.logger, logging.Logger)
 
@@ -221,7 +221,7 @@ def test_create_link_hard(tmp_path):
     src = tmp_path / "original.jpg"
     dst = tmp_path / "hardlink.jpg"
     src.write_bytes(b"data")
-    MediaOrganizer._create_link(src, dst, link_kind="hard")
+    AxoloOrganizer._create_link(src, dst, link_kind="hard")
     assert dst.stat().st_ino == src.stat().st_ino
 
 
@@ -229,7 +229,7 @@ def test_create_link_symbolic(tmp_path):
     src = tmp_path / "original.jpg"
     dst = tmp_path / "symlink.jpg"
     src.write_bytes(b"data")
-    MediaOrganizer._create_link(src, dst, link_kind="symbolic")
+    AxoloOrganizer._create_link(src, dst, link_kind="symbolic")
     assert dst.is_symlink()
 
 
@@ -244,7 +244,7 @@ def test_setup_logging_creates_log_file(tmp_path):
     logger = logging.getLogger("test_phase1_logger")
     logger.info("test message")
 
-    log_file = log_dir / "media-organizer.log"
+    log_file = log_dir / "axolo.log"
     assert log_file.exists()
     content = log_file.read_text(encoding="utf-8")
     assert "test message" in content
@@ -263,7 +263,7 @@ def test_setup_logging_log_file_is_json(tmp_path):
     setup_logging("INFO", log_dir=log_dir)
     logging.getLogger("phase1_json_test").info("structured entry")
 
-    log_file = log_dir / "media-organizer.log"
+    log_file = log_dir / "axolo.log"
     line = log_file.read_text(encoding="utf-8").strip().splitlines()[-1]
     obj = _json.loads(line)
     assert "ts" in obj
@@ -278,7 +278,7 @@ def test_setup_logging_correlation_id_in_log(tmp_path):
     cid = setup_logging("INFO", log_dir=log_dir)
     logging.getLogger("corr_test").info("with id")
 
-    log_file = log_dir / "media-organizer.log"
+    log_file = log_dir / "axolo.log"
     line = log_file.read_text(encoding="utf-8").strip().splitlines()[-1]
     obj = _json.loads(line)
     assert obj["correlation_id"] == cid
