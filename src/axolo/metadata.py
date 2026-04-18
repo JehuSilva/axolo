@@ -825,6 +825,28 @@ def _parse_exif_datetime(value: str) -> Optional[datetime]:
     return dt.replace(tzinfo=timezone.utc).astimezone()
 
 
+def _merge_exif_into(exif_obj: "Image.Exif", out: dict[str, object]) -> None:
+    for tag_id, value in exif_obj.items():
+        out[ExifTags.TAGS.get(tag_id, str(tag_id))] = value
+
+    # DateTimeOriginal/DateTimeDigitized viven en ExifTags.IFD.Exif; GPS en GPSInfo.
+    # En HEIC (vía pillow-heif) Pillow suele poblar SOLO los sub-IFDs, por eso es
+    # imprescindible fusionarlos.
+    sub_ifds = (
+        (ExifTags.IFD.Exif, ExifTags.TAGS),
+        (ExifTags.IFD.GPSInfo, ExifTags.GPSTAGS),
+    )
+    for ifd_id, tag_map in sub_ifds:
+        try:
+            sub = exif_obj.get_ifd(ifd_id)
+        except (KeyError, AttributeError, OSError):
+            continue
+        if not sub:
+            continue
+        for tag_id, value in sub.items():
+            out[tag_map.get(tag_id, str(tag_id))] = value
+
+
 def _read_exif_dict(image: Image.Image) -> dict[str, object]:
     """Devuelve un diccionario legible de etiquetas EXIF."""
     exif_data: dict[str, object] = {}
@@ -835,9 +857,7 @@ def _read_exif_dict(image: Image.Image) -> dict[str, object]:
         raw_exif = None
 
     if raw_exif:
-        for tag_id, value in raw_exif.items():
-            tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
-            exif_data[tag_name] = value
+        _merge_exif_into(raw_exif, exif_data)
 
     if not exif_data:
         exif_bytes = getattr(image, "info", {}).get("exif")
@@ -845,9 +865,7 @@ def _read_exif_dict(image: Image.Image) -> dict[str, object]:
             try:
                 exif = Image.Exif()
                 exif.load(exif_bytes)
-                for tag_id, value in exif.items():
-                    tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
-                    exif_data[tag_name] = value
+                _merge_exif_into(exif, exif_data)
             except Exception as exc:  # pragma: no cover - Pillow puede no soportar ciertos EXIF
                 logger.debug(
                     "No se pudo decodificar EXIF bytes para %s: %s",

@@ -38,3 +38,16 @@ def test_example_files_have_reliable_metadata(filename, expected_utc, expected_s
     assert metadata.timestamp_source == expected_source
     assert metadata.has_reliable_timestamp is True
     assert metadata.captured_at.astimezone(timezone.utc) == expected_utc
+
+
+def test_extract_metadata_heic_sample():
+    path = Path(__file__).resolve().parents[1] / "data" / "examples" / "IMG_1504_1.heic"
+    if not path.exists():
+        pytest.skip("sample HEIC not present")
+
+    metadata = extract_metadata(path)
+
+    assert metadata.captured_at is not None
+    assert metadata.timestamp_source == TimestampSource.METADATA
+    assert metadata.camera_make
+    assert metadata.camera_model

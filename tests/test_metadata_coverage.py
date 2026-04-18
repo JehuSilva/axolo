@@ -115,6 +115,44 @@ def test_extract_image_metadata_no_exif(tmp_path: Path):
     assert captured_at is None
 
 
+def test_read_exif_dict_merges_sub_ifd(tmp_path: Path):
+    """_read_exif_dict must merge the EXIF sub-IFD (0x8769) into the flat dict.
+
+    Reproduces the HEIC failure mode on JPEG: DateTimeOriginal lives only in the
+    sub-IFD, and previously was silently dropped.
+    """
+    try:
+        from PIL import Image
+        import piexif
+    except ImportError:
+        pytest.skip("piexif not available")
+
+    from axolo.metadata import _read_exif_dict
+
+    img_path = tmp_path / "sub_ifd.jpg"
+    Image.new("RGB", (10, 10)).save(
+        str(img_path),
+        exif=piexif.dump(
+            {
+                "0th": {piexif.ImageIFD.Make: b"Canon"},
+                "Exif": {
+                    piexif.ExifIFD.DateTimeOriginal: b"2024:06:15 14:30:00",
+                    piexif.ExifIFD.DateTimeDigitized: b"2024:06:15 14:30:00",
+                },
+                "GPS": {},
+                "1st": {},
+            }
+        ),
+    )
+
+    with Image.open(img_path) as img:
+        data = _read_exif_dict(img)
+
+    assert "DateTimeOriginal" in data
+    assert "DateTimeDigitized" in data
+    assert data.get("Make") == "Canon"
+
+
 def test_extract_image_metadata_with_make_model(tmp_path: Path):
     """Image with Make/Model EXIF tags should populate camera fields."""
     try:

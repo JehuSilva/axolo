@@ -15,8 +15,8 @@ requires-python = ">=3.10"
 dependencies = [
   "typer[all]>=0.9,<1.0",
   "rich>=13",
-  "Pillow==10.1.0",
-  "pillow-heif==0.14.0",
+  "Pillow>=10.1,<13",
+  "pillow-heif>=0.22,<2",
   "python-dateutil>=2.8",
   "pydantic>=2.5",
   "PyYAML>=6.0",

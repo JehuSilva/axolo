@@ -46,7 +46,7 @@ def test_render_template_includes_category(tmp_path):
     file_path.touch()
     metadata = build_metadata(file_path)
     result = render_template(metadata, "{category}/{year}")
-    assert result == Path("Fotos_y_Videos/2023")
+    assert result == Path("Fotos y Videos/2023")
 
 
 def test_render_template_unknown_placeholder_raises(tmp_path):
