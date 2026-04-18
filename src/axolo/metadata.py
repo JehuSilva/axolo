@@ -49,7 +49,7 @@ class MediaType(enum.Enum):
 
 
 class MediaCategory(enum.Enum):
-    PHOTOS_VIDEOS = ("Fotos y Videos", "Fotos_y_Videos")
+    PHOTOS_VIDEOS = ("Fotos y Videos", "Fotos y Videos")
     MUSIC = ("Musica", "Musica")
     DOCUMENTS = ("Documentos", "Documentos")
     OTHER = ("Otros", "Otros")
