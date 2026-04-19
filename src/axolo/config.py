@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 # These are the valid names for entries in the config.yaml  `profiles:` list.
 
 ROUTING_KEYS = frozenset({
-    "fotos",       # images in Fotos y Videos (non-panoramic)
-    "videos",      # videos in Fotos y Videos (non-panoramic)
+    "fotos",       # images → destination/Fotos/
+    "videos",      # videos → destination/Videos/
     "360-fotos",   # panoramic images
     "360-videos",  # panoramic videos
     "musica",      # audio files

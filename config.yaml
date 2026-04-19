@@ -28,19 +28,19 @@ action: move
 profiles:
   - name: fotos
     template: year_month_cap
-    # Resultado: Fotos y Videos/Fotos/2026/Abril/foto.jpg
+    # Resultado: Fotos/2026/Abril/foto.jpg
 
   - name: videos
     template: year_month_cap
-    # Resultado: Fotos y Videos/Videos/2026/Abril/video.mp4
+    # Resultado: Videos/2026/Abril/video.mp4
 
   - name: 360-fotos
     template: year_month_cap
-    # Resultado: Fotos y Videos/360/Fotos/2026/Abril/img.insp
+    # Resultado: 360/Fotos/2026/Abril/img.insp
 
   - name: 360-videos
     template: year_month_cap
-    # Resultado: Fotos y Videos/360/Videos/2026/Abril/vid.insv
+    # Resultado: 360/Videos/2026/Abril/vid.insv
 
   - name: musica
     template: music_genre

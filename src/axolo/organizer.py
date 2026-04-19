@@ -226,7 +226,10 @@ class AxoloOrganizer:
     ) -> Path:
         routing_key = self._get_routing_key(metadata)
 
-        category_root = (self.config.destination / metadata.category.folder_name()).resolve()
+        if metadata.category == MediaCategory.PHOTOS_VIDEOS:
+            category_root = self.config.destination.resolve()
+        else:
+            category_root = (self.config.destination / metadata.category.folder_name()).resolve()
         base_dir = category_root
         for subfolder in ROUTING_SUBFOLDERS.get(routing_key, ()):
             base_dir = base_dir / subfolder
