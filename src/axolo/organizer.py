@@ -299,6 +299,8 @@ class AxoloOrganizer:
                 status = "linked"
             else:
                 raise ValueError(f"Unknown action: {action}")
+            if status in {"moved", "copied"} and metadata.has_reliable_timestamp:
+                _apply_captured_at_mtime(destination, metadata.captured_at)
             logger.info("%s -> %s (%s)", source, destination, status)
         except Exception as exc:
             status = "failed"
@@ -325,6 +327,16 @@ class AxoloOrganizer:
                     "symlink not supported (%s), falling back to hardlink for %s", exc, source
                 )
                 os.link(source, destination)
+
+
+def _apply_captured_at_mtime(path: Path, captured_at: "datetime") -> None:
+    """Set atime/mtime del archivo a `captured_at` para que el sistema de archivos
+    refleje la fecha real de captura (Finder, ls -l, etc.)."""
+    try:
+        ts = captured_at.timestamp()
+        os.utime(path, (ts, ts))
+    except (OSError, OverflowError, ValueError) as exc:
+        logger.debug("No se pudo ajustar mtime de %s a %s: %s", path, captured_at, exc)
 
 
 def _safe_move(source: Path, destination: Path) -> None:

@@ -270,27 +270,73 @@ def extract_metadata(path: Path) -> MediaMetadata:
     )
 
 
+# EXIF tag IDs leídos en el path de producción. Se consultan directamente (sin
+# construir el dict completo) para minimizar memoria en lotes grandes.
+# Usa _read_exif_dict si necesitas el volcado completo (scripts, debugging).
+_EXIF_TAG_MAKE = 0x010F
+_EXIF_TAG_MODEL = 0x0110
+_EXIF_TAG_DATETIME = 0x0132
+_EXIF_TAG_DATETIME_ORIGINAL = 0x9003
+_EXIF_TAG_DATETIME_DIGITIZED = 0x9004
+
+
 def _extract_image_metadata(
     path: Path,
 ) -> tuple[Optional[datetime], Optional[str], Optional[str], TimestampSource]:
     try:
         with Image.open(path) as img:
-            exif = _read_exif_dict(img)
-            if not exif:
+            exif_obj = _get_exif_object(img)
+            if exif_obj is None:
                 return None, None, None, TimestampSource.UNKNOWN
+
+            make = exif_obj.get(_EXIF_TAG_MAKE)
+            model = exif_obj.get(_EXIF_TAG_MODEL)
+            date_main = exif_obj.get(_EXIF_TAG_DATETIME)
+
+            date_original: object = None
+            date_digitized: object = None
+            try:
+                sub = exif_obj.get_ifd(ExifTags.IFD.Exif)
+            except (KeyError, AttributeError, OSError):
+                sub = None
+            if sub:
+                date_original = sub.get(_EXIF_TAG_DATETIME_ORIGINAL)
+                date_digitized = sub.get(_EXIF_TAG_DATETIME_DIGITIZED)
     except Exception as exc:  # pragma: no cover - PIL lanza errores variados por archivos corruptos
         logger.debug("No fue posible leer EXIF de %s: %s", path, exc)
         return None, None, None, TimestampSource.UNKNOWN
 
-    date_value = exif.get("DateTimeOriginal") or exif.get("DateTimeDigitized") or exif.get(
-        "DateTime"
-    )
+    date_value = date_original or date_digitized or date_main
     captured_at = _parse_exif_datetime(str(date_value)) if date_value else None
     timestamp_source = TimestampSource.METADATA if captured_at else TimestampSource.UNKNOWN
 
-    make = exif.get("Make")
-    model = exif.get("Model")
     return captured_at, _clean_string(make), _clean_string(model), timestamp_source
+
+
+def _get_exif_object(image: Image.Image) -> Optional["Image.Exif"]:
+    """Devuelve un objeto Exif utilizable o None. No construye el dict completo."""
+    try:
+        exif = image.getexif()  # type: ignore[attr-defined]
+    except AttributeError:
+        exif = None
+
+    if exif:
+        return exif
+
+    exif_bytes = getattr(image, "info", {}).get("exif")
+    if not exif_bytes or not hasattr(Image, "Exif"):
+        return None
+    try:
+        loaded = Image.Exif()
+        loaded.load(exif_bytes)
+    except Exception as exc:  # pragma: no cover
+        logger.debug(
+            "No se pudo decodificar EXIF bytes para %s: %s",
+            getattr(image, "filename", "desconocido"),
+            exc,
+        )
+        return None
+    return loaded if len(loaded) else None
 
 
 def _extract_video_metadata(

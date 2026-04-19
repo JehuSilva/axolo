@@ -141,6 +141,48 @@ def test_media_organizer_routes_panoramic_photo_to_360_fotos(tmp_path, monkeypat
     assert summary.results[0].destination == expected
 
 
+def test_media_organizer_sets_destination_mtime_to_captured_at(tmp_path, monkeypatch):
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+
+    file_path = source / "photo.jpg"
+    file_path.write_bytes(b"test")
+    _set_file_timestamp(file_path, datetime(2000, 1, 1, 0, 0))
+
+    captured = datetime(2024, 11, 1, 11, 9, 22, tzinfo=timezone.utc)
+
+    def fake_extract(path: Path) -> MediaMetadata:
+        return MediaMetadata(
+            source_path=path,
+            media_type=MediaType.IMAGE,
+            category=MediaCategory.PHOTOS_VIDEOS,
+            captured_at=captured,
+            original_name=path.name,
+            timestamp_source=TimestampSource.METADATA,
+        )
+
+    monkeypatch.setattr("axolo.organizer.extract_metadata", fake_extract)
+
+    config = OrganizerConfig(
+        source=source,
+        destination=destination,
+        action="copy",
+        template="default",
+        dry_run=False,
+    )
+
+    organizer = AxoloOrganizer(config=config)
+    files = list(iter_media_files(source, ScanOptions(recursive=True)))
+    summary = organizer.organize(files)
+
+    assert summary.copied == 1
+    dest = summary.results[0].destination
+    assert dest.exists()
+    assert dest.stat().st_mtime == captured.timestamp()
+
+
 def test_media_organizer_sends_unreliable_files_to_unknown(tmp_path, monkeypatch):
     source = tmp_path / "source"
     destination = tmp_path / "destination"
