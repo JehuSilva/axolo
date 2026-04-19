@@ -173,43 +173,39 @@ def test_cli_logger_defined():
 
 
 # ---------------------------------------------------------------------------
-# Bug fix: _pick_canonical prefers older mtime over shorter path
+# Bug fix: _pick_canonical uses lexicographic path (not mtime) to avoid
+# the organizer's _apply_captured_at_mtime from inverting canonical selection.
 # ---------------------------------------------------------------------------
 
-def test_pick_canonical_prefers_older_mtime(tmp_path):
-    import time
-
-    older = tmp_path / "original.jpg"
-    newer = tmp_path / "copy" / "original.jpg"
+def test_pick_canonical_prefers_lexicographic_path(tmp_path):
+    older = tmp_path / "a_original.jpg"
+    newer = tmp_path / "z_copy" / "a_original.jpg"
     newer.parent.mkdir()
 
     older.write_bytes(b"x")
-    time.sleep(0.02)
     newer.write_bytes(b"x")
 
     items = [_make_metadata(newer), _make_metadata(older)]
     canonical = _pick_canonical(items)
+    # 'a_original.jpg' at tmp_path level sorts before the deeper path lexicographically
     assert canonical.source_path == older
 
 
-def test_pick_canonical_prefer_under_wins_over_mtime(tmp_path):
-    import time
-
+def test_pick_canonical_prefer_under_wins_over_lexicographic(tmp_path):
     preferred_dir = tmp_path / "primary"
     preferred_dir.mkdir()
     other_dir = tmp_path / "backup"
     other_dir.mkdir()
 
-    # Write the "primary" file AFTER the backup so it has a newer mtime
+    # Write both files; prefer_under should win regardless of path order
     backup = other_dir / "photo.jpg"
     backup.write_bytes(b"x")
-    time.sleep(0.02)
     primary = preferred_dir / "photo.jpg"
     primary.write_bytes(b"x")
 
     items = [_make_metadata(backup), _make_metadata(primary)]
     canonical = _pick_canonical(items, prefer_under=preferred_dir)
-    # Even though primary is newer, prefer_under makes it canonical
+    # prefer_under always makes files under preferred_dir canonical
     assert canonical.source_path == primary
 
 

@@ -147,7 +147,7 @@ def run(
 
     files = list(iter_media_files(config.source, scan_options))
     if not files:
-        console.print("[yellow]No files found to process.[/yellow]")
+        console.print("[yellow]No se encontraron archivos para procesar.[/yellow]")
         raise typer.Exit(code=0)
 
     journal = Journal() if not no_journal else None
@@ -216,7 +216,7 @@ def _render_duplicates_report(report: DuplicatesReport, max_groups: Optional[int
     console.print(
         f"[blue]Scanned:[/blue] {report.scanned}  "
         f"[blue]Hashed:[/blue] {report.processed}  "
-        f"[blue]Groups:[/blue] {total_groups}  "
+        f"[blue]Grupos:[/blue] {total_groups}  "
         f"[blue]Reclaimable:[/blue] {_humanize_bytes(report.reclaimable_bytes)}  "
         f"[blue]Algorithm:[/blue] {report.algorithm}"
     )
@@ -405,7 +405,7 @@ def undo(
 
         target_run_id = run_id or journal.last_revertible_run_id()
         if target_run_id is None:
-            console.print("[yellow]No runs recorded to revert.[/yellow]")
+            console.print("[yellow]No hay ejecuciones registradas para revertir.[/yellow]")
             raise typer.Exit(code=0)
 
         run_meta = journal.run_by_id(target_run_id)
@@ -563,7 +563,7 @@ def sync(
 
     src_files = list(iter_media_files(source, scan_opts))
     if not src_files:
-        console.print("[yellow]No files found in source.[/yellow]")
+        console.print("[yellow]No se encontraron archivos en el origen.[/yellow]")
         raise typer.Exit(code=0)
 
     dst_files = list(iter_media_files(destination, scan_opts)) if destination.exists() else []

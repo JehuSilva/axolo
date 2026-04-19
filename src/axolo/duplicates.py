@@ -84,10 +84,15 @@ def _pick_canonical(
     Selection policy (applied in order):
     1. Files under *prefer_under* win (if given) — treats that directory as
        the authoritative source, so copies outside it are the duplicates.
-    2. Oldest mtime — the file modified least recently is most likely the
-       original.  This avoids mistakenly deleting the source when a copy in a
-       shorter path exists.
-    3. Lexicographic path — deterministic tiebreaker.
+    2. Lexicographic path — deterministic tiebreaker.
+
+    NOTE: mtime is intentionally NOT used. The organizer sets the destination
+    file's mtime to the EXIF capture date via ``_apply_captured_at_mtime``.
+    This makes organized copies appear older than the source files, which
+    would cause ``_pick_canonical`` to systematically select organized copies
+    as canonical and flag every original as a duplicate — moving ALL originals
+    to quarantine. Use ``--prefer-under`` to explicitly declare which directory
+    holds the authoritative copies.
     """
     def _sort_key(m: MediaMetadata) -> tuple:
         if prefer_under is not None:
@@ -99,12 +104,7 @@ def _pick_canonical(
         else:
             preferred = 0
 
-        try:
-            mtime = os.stat(m.source_path).st_mtime
-        except OSError:
-            mtime = float("inf")
-
-        return (preferred, mtime, str(m.source_path))
+        return (preferred, str(m.source_path))
 
     return min(files, key=_sort_key)
 

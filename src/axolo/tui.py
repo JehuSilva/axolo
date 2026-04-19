@@ -307,6 +307,7 @@ def _wizard_duplicates() -> None:
     outcomes = apply_duplicate_actions(
         report, action,  # type: ignore[arg-type]
         quarantine=quarantine,
+        relative_to=source,
         dry_run=dry_run,
         show_progress=True,
     )

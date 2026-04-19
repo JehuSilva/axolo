@@ -76,8 +76,9 @@ def test_plan_sync_name_collision_different_content(tmp_path: Path):
     src_content = b"\xff\xd8\xff" + b"\x00" * 100
     dst_content = b"\xff\xd8\xff" + b"\x01" * 100
     src_file = _make_file(tmp_path / "src" / "photo.jpg", src_content)
-    # Destination collision must be in the same resolved folder (unknown_date when no timestamp)
-    dst_file = _make_file(tmp_path / "dst" / "unknown_date" / "photo.jpg", dst_content)
+    # With folder_template="" and a reliable FILE_CREATION timestamp the file
+    # resolves directly to dst/photo.jpg (no date sub-folder).
+    dst_file = _make_file(tmp_path / "dst" / "photo.jpg", dst_content)
 
     src_meta = [_metadata(src_file)]
 
@@ -140,9 +141,10 @@ def test_plan_sync_multiple_files_mixed(tmp_path: Path):
     _make_file(tmp_path / "src" / "a.jpg", identical_content)
     _make_file(tmp_path / "src" / "b.jpg", new_content)
     _make_file(tmp_path / "src" / "c.jpg", conflict_src)
-    # Collisions must be in the same resolved dir (unknown_date for files without timestamp)
-    dst_a = _make_file(tmp_path / "dst" / "unknown_date" / "a.jpg", identical_content)
-    dst_c = _make_file(tmp_path / "dst" / "unknown_date" / "c.jpg", conflict_dst)
+    # With folder_template="" and FILE_CREATION timestamps (reliable), files
+    # resolve directly to dst/<name> — no date or unknown_date sub-folder.
+    dst_a = _make_file(tmp_path / "dst" / "a.jpg", identical_content)
+    dst_c = _make_file(tmp_path / "dst" / "c.jpg", conflict_dst)
 
     src_meta = [_metadata(tmp_path / "src" / n) for n in ("a.jpg", "b.jpg", "c.jpg")]
 

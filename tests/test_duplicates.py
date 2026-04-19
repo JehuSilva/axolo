@@ -105,23 +105,21 @@ def test_size_prefilter_skips_hashing_for_unique_sizes(tmp_path):
     assert len(report.groups) == 0
 
 
-def test_canonical_selection_prefers_older_mtime(tmp_path):
-    """The file with the older mtime is chosen as canonical (original)."""
-    import time
-
+def test_canonical_selection_prefers_lexicographic_path(tmp_path):
+    """Without prefer_under, the lexicographically first path is chosen as canonical."""
     content = b"same content"
-    original = tmp_path / "original.jpg"
-    copy = tmp_path / "copy.jpg"
+    alpha = tmp_path / "a_photo.jpg"
+    beta = tmp_path / "z_copy.jpg"
 
-    original.write_bytes(content)
-    time.sleep(0.02)  # ensure different mtime
-    copy.write_bytes(content)
+    alpha.write_bytes(content)
+    beta.write_bytes(content)
 
-    items = [_metadata(copy), _metadata(original)]  # copy comes first
+    items = [_metadata(beta), _metadata(alpha)]  # beta comes first in the list
     report = DuplicateAnalyzer().analyze(items)
 
     assert len(report.groups) == 1
-    assert report.groups[0].canonical.metadata.source_path == original
+    # 'a_photo.jpg' < 'z_copy.jpg' lexicographically → alpha is canonical
+    assert report.groups[0].canonical.metadata.source_path == alpha
 
 
 def test_canonical_selection_prefer_under(tmp_path):
