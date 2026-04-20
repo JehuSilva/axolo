@@ -25,6 +25,7 @@ ROUTING_KEYS = frozenset({
     "360-videos",  # panoramic videos
     "musica",      # audio files
     "documentos",  # documents
+    "ocultos",     # hidden files (name starts with '.')
     "otros",       # everything else
 })
 
@@ -48,6 +49,7 @@ ROUTING_SUBFOLDERS: Dict[str, tuple[str, ...]] = {
     "360-videos": ("360", "Videos"),
     "musica":     (),
     "documentos": (),
+    "ocultos":    (),
     "otros":      (),
 }
 
@@ -60,6 +62,7 @@ DEFAULT_ROUTING: Dict[str, str] = {
     "360-videos": "default",           # {year}/{month_name_cap}
     "musica":     "music_genre_artist", # {music_genre}/{music_artist}
     "documentos": "year_month_cap",    # {year}/{month_name_cap}
+    "ocultos":    "year_month_cap",    # {year}/{month_name_cap}
     "otros":      "year_month_cap",   # {year}/{month_name}
 }
 
@@ -242,7 +245,7 @@ def load_run_config(path: Path) -> dict:
 
     # Scalar execution settings
     for key in ("source", "destination", "action", "template", "dry_run",
-                "recursive", "follow_symlinks", "extra",
+                "recursive", "follow_symlinks", "include_hidden", "extra",
                 "include_extensions", "exclude_extensions"):
         if key in raw:
             config[key] = raw[key]

@@ -218,3 +218,56 @@ def test_media_organizer_sends_unreliable_files_to_unknown(tmp_path, monkeypatch
     assert summary.results[0].destination == expected
     assert summary.status_counts()["dry-run"] == 1
     assert summary.results[0].category == MediaCategory.PHOTOS_VIDEOS
+
+
+def test_hidden_file_is_detected_in_metadata(tmp_path):
+    """extract_metadata assigns MediaCategory.HIDDEN to files whose name starts with '.'."""
+    from axolo.metadata import extract_metadata, MediaCategory
+
+    hidden = tmp_path / ".DS_Store"
+    hidden.write_bytes(b"bplist00")
+
+    meta = extract_metadata(hidden)
+    assert meta.category == MediaCategory.HIDDEN
+
+
+def test_media_organizer_routes_hidden_file_to_ocultos(tmp_path, monkeypatch):
+    """Hidden files are routed to Ocultos/ when include_hidden is enabled."""
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+
+    file_path = source / ".DS_Store"
+    file_path.write_bytes(b"bplist00")
+
+    def fake_extract(path: Path) -> MediaMetadata:
+        return MediaMetadata(
+            source_path=path,
+            media_type=MediaType.OTHER,
+            category=MediaCategory.HIDDEN,
+            captured_at=datetime(2024, 3, 10, 9, 0, tzinfo=timezone.utc),
+            original_name=path.name,
+            timestamp_source=TimestampSource.METADATA,
+        )
+
+    monkeypatch.setattr("axolo.organizer.extract_metadata", fake_extract)
+
+    config = OrganizerConfig(
+        source=source,
+        destination=destination,
+        action="copy",
+        template="default",
+        dry_run=True,
+    )
+
+    organizer = AxoloOrganizer(config=config)
+    from axolo.media_scanner import ScanOptions, iter_media_files
+    files = list(iter_media_files(source, ScanOptions(include_hidden=True)))
+    summary = organizer.organize(files)
+
+    assert summary.dry_run == 1
+    # Hidden files go to destination/Ocultos/{year}/{month_name_cap}/
+    expected = destination / "Ocultos" / "2024" / "Marzo" / ".DS_Store"
+    assert summary.results[0].destination == expected
+    assert summary.results[0].category == MediaCategory.HIDDEN

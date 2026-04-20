@@ -14,7 +14,7 @@ action: move
 
 # ── Routing por categoría ──────────────────────────────────────────────────────
 # Define qué template de carpeta (y opcionalmente de nombre) aplica cada tipo.
-# Claves válidas: fotos, videos, 360-fotos, 360-videos, musica, documentos, otros
+# Claves válidas: fotos, videos, 360-fotos, 360-videos, musica, documentos, ocultos, otros
 # Templates de carpeta disponibles: ver DEFAULT_TEMPLATES en templates.py
 #   year_month_cap       → 2026/Abril
 #   year_month           → 2026/04
@@ -51,6 +51,11 @@ profiles:
     template: year_month_cap
     # Resultado: Documentos/2026/Abril/contrato.pdf
 
+  # - name: ocultos
+  #   template: year_month_cap
+  #   # Resultado: Ocultos/2026/Abril/.DS_Store
+  #   # Requiere --include-hidden para que el scanner los detecte.
+
   # - name: otros
   #   template: year_month_cap
   #   # Resultado: Otros/2026/Abril/archivo.zip
@@ -59,6 +64,7 @@ profiles:
 dry_run: false
 recursive: true
 follow_symlinks: false
+# include_hidden: false   # Activar para organizar archivos ocultos (nombres que empiezan con '.')
 
 # ── Variables extra para templates que las requieran ──────────────────────────
 # extra:

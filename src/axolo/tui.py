@@ -132,6 +132,12 @@ def _wizard_run() -> None:
     dry_run = questionary.confirm("Dry-run mode (no real file moves)?", default=True).ask()
     if dry_run is None:
         raise KeyboardInterrupt
+    include_hidden = questionary.confirm(
+        "Include hidden files (names starting with '.')? They will be routed to Ocultos/.",
+        default=False,
+    ).ask()
+    if include_hidden is None:
+        raise KeyboardInterrupt
 
     # Load routing defaults: auto-detect ./config.yaml, fall back to DEFAULT_ROUTING
     routing: dict = dict(DEFAULT_ROUTING)
@@ -155,6 +161,7 @@ def _wizard_run() -> None:
         "360-videos": "360° Videos",
         "musica": "Music",
         "documentos": "Documents",
+        "ocultos": "Hidden files",
         "otros": "Other",
     }
 
@@ -193,7 +200,7 @@ def _wizard_run() -> None:
                 routing[key] = new_profile
 
     setup_logging("INFO")
-    files = list(iter_media_files(source, ScanOptions()))
+    files = list(iter_media_files(source, ScanOptions(include_hidden=include_hidden)))
 
     if not files:
         console.print("[yellow]No files found in source.[/yellow]")

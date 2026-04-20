@@ -57,6 +57,7 @@ def run(
     dry_run: Optional[bool] = typer.Option(None, "--dry-run/--no-dry-run", help="Preview changes without moving files."),
     recursive: Optional[bool] = typer.Option(None, "--recursive/--no-recursive", help="Scan directories recursively."),
     follow_symlinks: Optional[bool] = typer.Option(None, "--follow-symlinks/--no-follow-symlinks"),
+    include_hidden: Optional[bool] = typer.Option(None, "--include-hidden/--no-include-hidden", help="Include hidden files (names starting with '.') and route them to Ocultos/."),
     include_ext: Optional[List[str]] = typer.Option(None, "--include-ext"),
     exclude_ext: Optional[List[str]] = typer.Option(None, "--exclude-ext"),
     extra: Optional[List[str]] = typer.Option(None, "--extra", help="key=value pairs for the template."),
@@ -118,6 +119,7 @@ def run(
     effective_dry_run = dry_run if dry_run is not None else file_cfg.get("dry_run", False)
     effective_recursive = recursive if recursive is not None else file_cfg.get("recursive", True)
     effective_symlinks = follow_symlinks if follow_symlinks is not None else file_cfg.get("follow_symlinks", False)
+    effective_hidden = include_hidden if include_hidden is not None else file_cfg.get("include_hidden", False)
     extra_values = _parse_extra(extra)
     if not extra_values and "extra" in file_cfg:
         extra_values = file_cfg["extra"]
@@ -143,6 +145,7 @@ def run(
         follow_symlinks=config.follow_symlinks,
         include_extensions=config.normalized_include_extensions(),
         exclude_extensions=config.normalized_exclude_extensions(),
+        include_hidden=effective_hidden,
     )
 
     files = list(iter_media_files(config.source, scan_options))

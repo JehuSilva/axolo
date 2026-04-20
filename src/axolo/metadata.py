@@ -52,6 +52,7 @@ class MediaCategory(enum.Enum):
     PHOTOS_VIDEOS = ("Fotos y Videos", "Fotos y Videos")
     MUSIC = ("Musica", "Musica")
     DOCUMENTS = ("Documentos", "Documentos")
+    HIDDEN = ("Ocultos", "Ocultos")
     OTHER = ("Otros", "Otros")
 
     def label(self) -> str:
@@ -219,7 +220,9 @@ def resolve_category(media_type: MediaType) -> MediaCategory:
 
 def extract_metadata(path: Path) -> MediaMetadata:
     media_type = detect_media_type(path)
-    category = resolve_category(media_type)
+    # Hidden files (name starts with '.') get their own category regardless of type.
+    is_hidden = path.name.startswith(".")
+    category = MediaCategory.HIDDEN if is_hidden else resolve_category(media_type)
     captured_at: Optional[datetime] = None
     camera_make: Optional[str] = None
     camera_model: Optional[str] = None

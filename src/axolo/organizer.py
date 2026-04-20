@@ -211,6 +211,8 @@ class AxoloOrganizer:
             summary.add(result)
 
     def _get_routing_key(self, metadata: MediaMetadata) -> str:
+        if metadata.category == MediaCategory.HIDDEN:
+            return "ocultos"
         if metadata.is_panoramic:
             return "360-videos" if metadata.media_type == MediaType.VIDEO else "360-fotos"
         if metadata.category == MediaCategory.PHOTOS_VIDEOS:

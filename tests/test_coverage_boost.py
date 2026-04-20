@@ -289,6 +289,36 @@ def test_media_scanner_exclude_ext(tmp_path: Path):
     assert all(f.suffix != ".mp4" for f in files)
 
 
+def test_media_scanner_skips_hidden_by_default(tmp_path: Path):
+    from axolo.media_scanner import ScanOptions, iter_media_files
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "photo.jpg").write_bytes(b"x")
+    (src / ".DS_Store").write_bytes(b"x")
+    (src / ".hidden.jpg").write_bytes(b"x")
+
+    files = list(iter_media_files(src, ScanOptions()))
+    names = [f.name for f in files]
+    assert "photo.jpg" in names
+    assert ".DS_Store" not in names
+    assert ".hidden.jpg" not in names
+
+
+def test_media_scanner_include_hidden_flag(tmp_path: Path):
+    from axolo.media_scanner import ScanOptions, iter_media_files
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "photo.jpg").write_bytes(b"x")
+    (src / ".DS_Store").write_bytes(b"x")
+
+    files = list(iter_media_files(src, ScanOptions(include_hidden=True)))
+    names = [f.name for f in files]
+    assert "photo.jpg" in names
+    assert ".DS_Store" in names
+
+
 # ---------------------------------------------------------------------------
 # cli: more branches
 # ---------------------------------------------------------------------------
