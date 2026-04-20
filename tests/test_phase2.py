@@ -16,6 +16,8 @@ from axolo.cli import app
 from axolo.journal import Journal
 from axolo.parallel import parallel_map
 
+pytestmark = pytest.mark.parallel
+
 
 # ---------------------------------------------------------------------------
 # parallel_map

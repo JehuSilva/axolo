@@ -6,7 +6,39 @@ from pathlib import Path
 
 import pytest
 
+from axolo import parallel as _parallel_module
+from axolo import organizer as _organizer_module
+from axolo import duplicates as _duplicates_module
+from axolo import sync as _sync_module
+from axolo.commands import _shared as _shared_module
 from axolo.journal import Journal
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "parallel: test exercises real thread pools; opts out of serial-workers fixture",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _serialize_workers(request, monkeypatch):
+    # Four-worker defaults in parallel_map / AxoloOrganizer / DuplicateAnalyzer /
+    # plan_sync stacked ffprobe subprocesses and 1 MiB hash reads across the suite
+    # until memory was exhausted. Patch parallel_map to force workers=1 everywhere
+    # it's imported; tests that exercise parallelism opt out with @pytest.mark.parallel.
+    if "parallel" in request.keywords:
+        return
+
+    original = _parallel_module.parallel_map
+
+    def serial_parallel_map(fn, items, **kwargs):
+        kwargs["workers"] = 1
+        return original(fn, items, **kwargs)
+
+    monkeypatch.setattr(_parallel_module, "parallel_map", serial_parallel_map)
+    for mod in (_organizer_module, _duplicates_module, _sync_module, _shared_module):
+        monkeypatch.setattr(mod, "parallel_map", serial_parallel_map)
 
 
 @pytest.fixture()

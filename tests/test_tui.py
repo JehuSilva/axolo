@@ -114,12 +114,12 @@ def test_wizard_history_no_runs(tmp_path: Path, monkeypatch):
     _wizard_history()  # should not raise — no runs → prints message and returns
 
 
-def test_run_tui_exits_on_salir(monkeypatch):
-    """run_tui exits cleanly when user selects 'Salir'."""
+def test_run_tui_exits_on_exit(monkeypatch):
+    """run_tui exits cleanly when user selects 'Exit'."""
     import questionary as q
 
     with patch.object(q, "select") as mock_select:
-        mock_select.return_value.ask.return_value = "Salir"
+        mock_select.return_value.ask.return_value = "Exit"
 
         from axolo.tui import run_tui
         run_tui()  # should not raise or hang
