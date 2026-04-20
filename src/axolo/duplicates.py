@@ -199,13 +199,13 @@ class DuplicateAnalyzer:
     ) -> None:
         if algorithm not in _VALID_ALGORITHMS:
             raise ValueError(
-                f"Algoritmo de hash no soportado: '{algorithm}'. "
-                f"Usa uno de: {', '.join(sorted(_VALID_ALGORITHMS))}"
+                f"Unsupported hash algorithm: '{algorithm}'. "
+                f"Use one of: {', '.join(sorted(_VALID_ALGORITHMS))}"
             )
         if chunk_size <= 0:
-            raise ValueError("chunk_size debe ser mayor que 0.")
+            raise ValueError("chunk_size must be greater than 0.")
         if min_size < 0:
-            raise ValueError("min_size no puede ser negativo.")
+            raise ValueError("min_size cannot be negative.")
         self.algorithm = algorithm
         self.chunk_size = chunk_size
         self.min_size = min_size
@@ -240,7 +240,7 @@ class DuplicateAnalyzer:
                 candidates.append((item, size))
 
         logger.debug(
-            "Fase 1 completada: %d candidatos a hashear de %d archivos escaneados.",
+            "Phase 1 complete: %d candidates to hash out of %d files scanned.",
             len(candidates),
             scanned,
         )
@@ -261,7 +261,7 @@ class DuplicateAnalyzer:
             candidates,
             workers=self.workers,
             show_progress=show_progress,
-            description="Calculando hashes...",
+            description="Computing hashes...",
         )
 
         hash_groups: Dict[Tuple[int, str], List[MediaMetadata]] = {}
@@ -281,7 +281,7 @@ class DuplicateAnalyzer:
             hash_groups.setdefault((size, digest), []).append(item)
 
         logger.debug(
-            "Fase 2 completada: %d archivos hasheados, %d bytes leídos.",
+            "Phase 2 complete: %d files hashed, %d bytes read.",
             processed,
             hashed_bytes,
         )
@@ -306,7 +306,7 @@ class DuplicateAnalyzer:
             )
 
         logger.info(
-            "Detección de duplicados: %d grupos, %d bytes recuperables.",
+            "Duplicate detection: %d groups, %d reclaimable bytes.",
             len(groups),
             sum(g.reclaimable_bytes for g in groups),
         )
@@ -378,11 +378,11 @@ def apply_duplicate_actions(
     """
     if action == "move" and quarantine is None:
         raise DuplicateActionError(
-            "Se requiere --quarantine cuando se usa --action move."
+            "--quarantine is required when using --action move."
         )
     if link_kind not in {"hard", "symbolic"}:
         raise DuplicateActionError(
-            f"link_kind no válido: '{link_kind}'. Usa 'hard' o 'symbolic'."
+            f"Invalid link_kind: '{link_kind}'. Use 'hard' or 'symbolic'."
         )
 
     total_dups = sum(len(g.duplicates) for g in report.groups)
@@ -397,7 +397,7 @@ def apply_duplicate_actions(
         TimeElapsedColumn(),
         disable=not show_progress,
     ) as prog:
-        task = prog.add_task(f"Aplicando acción '{action}'...", total=total_dups)
+        task = prog.add_task(f"Applying action '{action}'...", total=total_dups)
         for group in report.groups:
             canonical_path = group.canonical.metadata.source_path
             for dup_file in group.duplicates:

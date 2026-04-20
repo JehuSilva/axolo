@@ -57,7 +57,7 @@ def run(
     dry_run: Optional[bool] = typer.Option(None, "--dry-run/--no-dry-run", help="Preview changes without moving files."),
     recursive: Optional[bool] = typer.Option(None, "--recursive/--no-recursive", help="Scan directories recursively."),
     follow_symlinks: Optional[bool] = typer.Option(None, "--follow-symlinks/--no-follow-symlinks"),
-    include_hidden: Optional[bool] = typer.Option(None, "--include-hidden/--no-include-hidden", help="Include hidden files (names starting with '.') and route them to Ocultos/."),
+    include_hidden: Optional[bool] = typer.Option(None, "--include-hidden/--no-include-hidden", help="Include hidden files (names starting with '.') and route them to Hidden/."),
     include_ext: Optional[List[str]] = typer.Option(None, "--include-ext"),
     exclude_ext: Optional[List[str]] = typer.Option(None, "--exclude-ext"),
     extra: Optional[List[str]] = typer.Option(None, "--extra", help="key=value pairs for the template."),
@@ -150,7 +150,7 @@ def run(
 
     files = list(iter_media_files(config.source, scan_options))
     if not files:
-        console.print("[yellow]No se encontraron archivos para procesar.[/yellow]")
+        console.print("[yellow]No files found to process.[/yellow]")
         raise typer.Exit(code=0)
 
     journal = Journal() if not no_journal else None
@@ -408,7 +408,7 @@ def undo(
 
         target_run_id = run_id or journal.last_revertible_run_id()
         if target_run_id is None:
-            console.print("[yellow]No hay ejecuciones registradas para revertir.[/yellow]")
+            console.print("[yellow]No runs recorded to undo.[/yellow]")
             raise typer.Exit(code=0)
 
         run_meta = journal.run_by_id(target_run_id)
@@ -566,7 +566,7 @@ def sync(
 
     src_files = list(iter_media_files(source, scan_opts))
     if not src_files:
-        console.print("[yellow]No se encontraron archivos en el origen.[/yellow]")
+        console.print("[yellow]No files found in source.[/yellow]")
         raise typer.Exit(code=0)
 
     dst_files = list(iter_media_files(destination, scan_opts)) if destination.exists() else []
@@ -637,10 +637,10 @@ def sync(
 
 def _render_sync_plan(plan: SyncPlan, *, dry_run: bool = True) -> None:
     if plan.skipped_identical:
-        console.print(f"[green]Idénticos (omitidos):[/green] {len(plan.skipped_identical)}")
+        console.print(f"[green]Identical (skipped):[/green] {len(plan.skipped_identical)}")
 
     if plan.conflicts:
-        console.print(f"[yellow]Conflictos renombrados:[/yellow] {len(plan.conflicts)}")
+        console.print(f"[yellow]Renamed conflicts:[/yellow] {len(plan.conflicts)}")
         t = Table(title="Resolved name conflicts")
         t.add_column("Source", style="cyan")
         t.add_column("Original name", style="yellow")

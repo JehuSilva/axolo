@@ -1,21 +1,21 @@
-# config.yaml — configuración de ejecución para media-organizer
+# config.yaml — execution configuration for media-organizer
 #
-# Uso:
-#   media-organizer run --config config.yaml
-#   media-organizer run --config config.yaml --dry-run   # los flags CLI tienen precedencia
+# Usage:
+#   axolo run --config config.yaml
+#   axolo run --config config.yaml --dry-run   # CLI flags take precedence
 
-# ── Rutas ──────────────────────────────────────────────────────────────────────
+# ── Paths ──────────────────────────────────────────────────────────────────────
 source: data/House2
 destination: data/Organized
 
-# ── Acción ─────────────────────────────────────────────────────────────────────
+# ── Action ─────────────────────────────────────────────────────────────────────
 # move | copy | link
 action: move
 
-# ── Routing por categoría ──────────────────────────────────────────────────────
-# Define qué template de carpeta (y opcionalmente de nombre) aplica cada tipo.
-# Claves válidas: fotos, videos, 360-fotos, 360-videos, musica, documentos, ocultos, otros
-# Templates de carpeta disponibles: ver DEFAULT_TEMPLATES en templates.py
+# ── Routing by category ────────────────────────────────────────────────────────
+# Defines which folder template (and optionally filename template) applies to each type.
+# Valid keys: photos, videos, 360-photos, 360-videos, music, documents, hidden, others
+# Available folder templates: see DEFAULT_TEMPLATES in templates.py
 #   year_month_cap       → 2026/Abril
 #   year_month           → 2026/04
 #   year_month_name      → 2026/abril
@@ -23,49 +23,49 @@ action: move
 #   music_genre          → rock
 #   music_genre_artist   → rock/the-beatles
 #   camera               → canon/eos-r5/2026/04
-#   (o cualquier template personalizado con placeholders)
+#   (or any custom template with placeholders)
 
 profiles:
-  - name: fotos
+  - name: photos
     template: year_month_cap
-    # Resultado: Fotos/2026/Abril/foto.jpg
+    # Result: Photos/2026/Abril/photo.jpg
 
   - name: videos
     template: year_month_cap
-    # Resultado: Videos/2026/Abril/video.mp4
+    # Result: Videos/2026/Abril/video.mp4
 
-  - name: 360-fotos
+  - name: 360-photos
     template: year_month_cap
-    # Resultado: 360/Fotos/2026/Abril/img.insp
+    # Result: 360/Photos/2026/Abril/img.insp
 
   - name: 360-videos
     template: year_month_cap
-    # Resultado: 360/Videos/2026/Abril/vid.insv
+    # Result: 360/Videos/2026/Abril/vid.insv
 
-  - name: musica
+  - name: music
     template: music_genre
     filename_template: "{music_artist} - {music_title}"
-    # Resultado: Musica/rock/the-beatles - let-it-be.mp3
+    # Result: Music/rock/the-beatles - let-it-be.mp3
 
-  - name: documentos
+  - name: documents
     template: year_month_cap
-    # Resultado: Documentos/2026/Abril/contrato.pdf
+    # Result: Documents/2026/Abril/contract.pdf
 
-  # - name: ocultos
+  # - name: hidden
   #   template: year_month_cap
-  #   # Resultado: Ocultos/2026/Abril/.DS_Store
-  #   # Requiere --include-hidden para que el scanner los detecte.
+  #   # Result: Hidden/2026/Abril/.DS_Store
+  #   # Requires --include-hidden for the scanner to detect them.
 
-  # - name: otros
+  # - name: others
   #   template: year_month_cap
-  #   # Resultado: Otros/2026/Abril/archivo.zip
+  #   # Result: Others/2026/Abril/archive.zip
 
-# ── Opciones ───────────────────────────────────────────────────────────────────
+# ── Options ────────────────────────────────────────────────────────────────────
 dry_run: false
 recursive: true
 follow_symlinks: false
-# include_hidden: false   # Activar para organizar archivos ocultos (nombres que empiezan con '.')
+# include_hidden: false   # Enable to organize hidden files (names starting with '.')
 
-# ── Variables extra para templates que las requieran ──────────────────────────
+# ── Extra variables for templates that require them ───────────────────────────
 # extra:
-#   evento: Boda2026
+#   evento: Wedding2026

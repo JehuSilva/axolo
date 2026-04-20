@@ -56,7 +56,7 @@ def test_wizard_run_invokes_organizer(tmp_path: Path):
         mock_path.return_value.ask.side_effect = [str(src), str(dst)]
         mock_select.return_value.ask.side_effect = ["copy"]
         mock_text.return_value.ask.return_value = "1"
-        mock_confirm.return_value.ask.side_effect = [True, False, True]  # dry_run, customize=No, confirmed
+        mock_confirm.return_value.ask.side_effect = [True, False, False, True]  # dry_run, include_hidden=No, customize=No, confirmed
 
         from axolo.tui import _wizard_run
         _wizard_run()  # should not raise

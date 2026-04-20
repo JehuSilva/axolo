@@ -49,11 +49,11 @@ class MediaType(enum.Enum):
 
 
 class MediaCategory(enum.Enum):
-    PHOTOS_VIDEOS = ("Fotos y Videos", "Fotos y Videos")
-    MUSIC = ("Musica", "Musica")
-    DOCUMENTS = ("Documentos", "Documentos")
-    HIDDEN = ("Ocultos", "Ocultos")
-    OTHER = ("Otros", "Otros")
+    PHOTOS_VIDEOS = ("Photos and Videos", "Photos and Videos")
+    MUSIC = ("Music", "Music")
+    DOCUMENTS = ("Documents", "Documents")
+    HIDDEN = ("Hidden", "Hidden")
+    OTHER = ("Others", "Others")
 
     def label(self) -> str:
         return self.value[0]
@@ -73,7 +73,7 @@ class TimestampSource(enum.Enum):
 
 @dataclass
 class MediaMetadata:
-    """Metadata relevante para organizar archivos multimedia."""
+    """Relevant metadata for organizing media files."""
 
     source_path: Path
     media_type: MediaType
@@ -273,9 +273,9 @@ def extract_metadata(path: Path) -> MediaMetadata:
     )
 
 
-# EXIF tag IDs leídos en el path de producción. Se consultan directamente (sin
-# construir el dict completo) para minimizar memoria en lotes grandes.
-# Usa _read_exif_dict si necesitas el volcado completo (scripts, debugging).
+# EXIF tag IDs read in the production path. Queried directly (without building
+# the full dict) to minimize memory usage in large batches.
+# Use _read_exif_dict if you need the full dump (scripts, debugging).
 _EXIF_TAG_MAKE = 0x010F
 _EXIF_TAG_MODEL = 0x0110
 _EXIF_TAG_DATETIME = 0x0132
@@ -305,8 +305,8 @@ def _extract_image_metadata(
             if sub:
                 date_original = sub.get(_EXIF_TAG_DATETIME_ORIGINAL)
                 date_digitized = sub.get(_EXIF_TAG_DATETIME_DIGITIZED)
-    except Exception as exc:  # pragma: no cover - PIL lanza errores variados por archivos corruptos
-        logger.debug("No fue posible leer EXIF de %s: %s", path, exc)
+    except Exception as exc:  # pragma: no cover - PIL raises various errors for corrupt files
+        logger.debug("Could not read EXIF from %s: %s", path, exc)
         return None, None, None, TimestampSource.UNKNOWN
 
     date_value = date_original or date_digitized or date_main
@@ -397,16 +397,16 @@ def _extract_video_metadata_ffprobe(
             text=True,
         )
     except FileNotFoundError:
-        logger.debug("ffprobe no está instalado; usando marca de tiempo del sistema.")
+        logger.debug("ffprobe is not installed; using filesystem timestamp.")
         return None, None, None, TimestampSource.UNKNOWN
     except subprocess.CalledProcessError as exc:
-        logger.debug("ffprobe falló en %s: %s", path, exc)
+        logger.debug("ffprobe failed on %s: %s", path, exc)
         return None, None, None, TimestampSource.UNKNOWN
 
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
-        logger.debug("ffprobe devolvió una salida no válida para %s", path)
+        logger.debug("ffprobe returned invalid output for %s", path)
         return None, None, None, TimestampSource.UNKNOWN
 
     tags_sources: list[dict[str, str]] = []
@@ -592,13 +592,13 @@ def _extract_audio_metadata(
     path: Path,
 ) -> tuple[Optional[datetime], TimestampSource, Optional[str], Optional[str], Optional[str], Optional[str]]:
     if mutagen is None:
-        logger.debug("mutagen no está instalado; usando timestamp del sistema para %s", path)
+        logger.debug("mutagen is not installed; using filesystem timestamp for %s", path)
         return None, TimestampSource.UNKNOWN, None, None, None, None
 
     try:
         audio = mutagen.File(path)  # type: ignore[attr-defined]
-    except Exception as exc:  # pragma: no cover - mutagen lanza distintos errores según formato
-        logger.debug("No fue posible leer metadatos de audio en %s: %s", path, exc)
+    except Exception as exc:  # pragma: no cover - mutagen raises various errors depending on format
+        logger.debug("Could not read audio metadata from %s: %s", path, exc)
         return None, TimestampSource.UNKNOWN, None, None, None, None
 
     if audio is None:
@@ -653,13 +653,13 @@ def _extract_document_metadata(path: Path) -> tuple[Optional[datetime], Timestam
 
 def _extract_pdf_metadata(path: Path) -> tuple[Optional[datetime], TimestampSource]:
     if PdfReader is None:
-        logger.debug("pypdf no está instalado; usando timestamp del sistema para %s", path)
+        logger.debug("pypdf is not installed; using filesystem timestamp for %s", path)
         return None, TimestampSource.UNKNOWN
 
     try:
         reader = PdfReader(str(path))
-    except Exception as exc:  # pragma: no cover - pypdf puede lanzar diversas excepciones
-        logger.debug("No fue posible leer metadatos de PDF en %s: %s", path, exc)
+    except Exception as exc:  # pragma: no cover - pypdf can raise various exceptions
+        logger.debug("Could not read PDF metadata from %s: %s", path, exc)
         return None, TimestampSource.UNKNOWN
 
     metadata = getattr(reader, "metadata", None) or getattr(reader, "documentInfo", None)
@@ -693,13 +693,13 @@ def _extract_office_metadata(
             with archive.open(core_path) as handle:
                 data = handle.read()
     except (FileNotFoundError, KeyError, zipfile.BadZipFile) as exc:
-        logger.debug("No se encontró metadata %s en %s: %s", core_path, path, exc)
+        logger.debug("Metadata %s not found in %s: %s", core_path, path, exc)
         return None, TimestampSource.UNKNOWN
 
     try:
         root = ET.fromstring(data)
     except ET.ParseError as exc:
-        logger.debug("No se pudo parsear metadata XML en %s: %s", path, exc)
+        logger.debug("Could not parse XML metadata in %s: %s", path, exc)
         return None, TimestampSource.UNKNOWN
 
     if core_path == "docProps/core.xml":
@@ -878,9 +878,9 @@ def _merge_exif_into(exif_obj: "Image.Exif", out: dict[str, object]) -> None:
     for tag_id, value in exif_obj.items():
         out[ExifTags.TAGS.get(tag_id, str(tag_id))] = value
 
-    # DateTimeOriginal/DateTimeDigitized viven en ExifTags.IFD.Exif; GPS en GPSInfo.
-    # En HEIC (vía pillow-heif) Pillow suele poblar SOLO los sub-IFDs, por eso es
-    # imprescindible fusionarlos.
+    # DateTimeOriginal/DateTimeDigitized live in ExifTags.IFD.Exif; GPS in GPSInfo.
+    # In HEIC (via pillow-heif) Pillow usually populates ONLY the sub-IFDs, so
+    # merging them is essential.
     sub_ifds = (
         (ExifTags.IFD.Exif, ExifTags.TAGS),
         (ExifTags.IFD.GPSInfo, ExifTags.GPSTAGS),

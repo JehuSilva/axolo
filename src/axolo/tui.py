@@ -133,7 +133,7 @@ def _wizard_run() -> None:
     if dry_run is None:
         raise KeyboardInterrupt
     include_hidden = questionary.confirm(
-        "Include hidden files (names starting with '.')? They will be routed to Ocultos/.",
+        "Include hidden files (names starting with '.')? They will be routed to Hidden/.",
         default=False,
     ).ask()
     if include_hidden is None:
@@ -155,14 +155,14 @@ def _wizard_run() -> None:
             pass
 
     _TYPE_LABELS = {
-        "fotos": "Photos",
+        "photos": "Photos",
         "videos": "Videos",
-        "360-fotos": "360° Photos",
+        "360-photos": "360° Photos",
         "360-videos": "360° Videos",
-        "musica": "Music",
-        "documentos": "Documents",
-        "ocultos": "Hidden files",
-        "otros": "Other",
+        "music": "Music",
+        "documents": "Documents",
+        "hidden": "Hidden files",
+        "others": "Other",
     }
 
     t = Table(title="Configuration by file type")

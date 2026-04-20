@@ -325,9 +325,9 @@ def apply_sync(
                         dst=addition.destination,
                     )
                 except Exception as jexc:
-                    logger.warning("Error escribiendo en journal: %s", jexc)
+                    logger.warning("Error writing to journal: %s", jexc)
         else:
-            logger.error("Falló sync %s → %s: %s", addition.metadata.source_path, addition.destination, err)
+            logger.error("Sync failed %s → %s: %s", addition.metadata.source_path, addition.destination, err)
         seq += 1
 
     return success

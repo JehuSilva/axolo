@@ -338,7 +338,7 @@ def test_cli_run_no_files(tmp_path, monkeypatch_home):
         "--action", "copy", "--template", "default", "--no-journal",
     ])
     assert result.exit_code == 0
-    assert "No se encontraron" in result.output
+    assert "No files found" in result.output
 
 
 def test_cli_duplicates_with_move_action(tmp_path, monkeypatch_home):

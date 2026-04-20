@@ -24,7 +24,7 @@ def test_media_organizer_resolves_collisions(tmp_path, monkeypatch):
     _set_file_timestamp(file_path, datetime(2023, 1, 2, 12, 0))
 
     # default template is {year}/{month_name_cap} → 2023/Enero
-    preexisting_dir = destination / "Fotos" / "2023" / "Enero"
+    preexisting_dir = destination / "Photos" / "2023" / "Enero"
     preexisting_dir.mkdir(parents=True)
     (preexisting_dir / "photo.jpg").write_bytes(b"existing")
 
@@ -53,7 +53,7 @@ def test_media_organizer_resolves_collisions(tmp_path, monkeypatch):
     summary = organizer.organize(files)
 
     assert summary.copied == 1
-    new_file = destination / "Fotos" / "2023" / "Enero" / "photo_1.jpg"
+    new_file = destination / "Photos" / "2023" / "Enero" / "photo_1.jpg"
     assert new_file.exists()
     assert summary.failed == 0
     assert summary.status_counts()["copied"] == 1
@@ -99,7 +99,7 @@ def test_media_organizer_routes_panoramic_video_to_360_videos(tmp_path, monkeypa
     assert summary.results[0].destination == expected
 
 
-def test_media_organizer_routes_panoramic_photo_to_360_fotos(tmp_path, monkeypatch):
+def test_media_organizer_routes_panoramic_photo_to_360_photos(tmp_path, monkeypatch):
     source = tmp_path / "source"
     destination = tmp_path / "destination"
     source.mkdir()
@@ -134,7 +134,7 @@ def test_media_organizer_routes_panoramic_photo_to_360_fotos(tmp_path, monkeypat
     summary = organizer.organize(files)
 
     # default template is {year}/{month_name_cap} → 2026/Abril
-    expected = destination / "360" / "Fotos" / "2026" / "Abril" / file_path.name
+    expected = destination / "360" / "Photos" / "2026" / "Abril" / file_path.name
     assert summary.results[0].destination == expected
 
 
@@ -214,7 +214,7 @@ def test_media_organizer_sends_unreliable_files_to_unknown(tmp_path, monkeypatch
     summary = organizer.organize(files)
 
     assert summary.dry_run == 1
-    expected = destination / "Fotos" / "unknown_date" / "photo.jpg"
+    expected = destination / "Photos" / "unknown_date" / "photo.jpg"
     assert summary.results[0].destination == expected
     assert summary.status_counts()["dry-run"] == 1
     assert summary.results[0].category == MediaCategory.PHOTOS_VIDEOS
@@ -231,8 +231,8 @@ def test_hidden_file_is_detected_in_metadata(tmp_path):
     assert meta.category == MediaCategory.HIDDEN
 
 
-def test_media_organizer_routes_hidden_file_to_ocultos(tmp_path, monkeypatch):
-    """Hidden files are routed to Ocultos/ when include_hidden is enabled."""
+def test_media_organizer_routes_hidden_file_to_hidden(tmp_path, monkeypatch):
+    """Hidden files are routed to Hidden/ when include_hidden is enabled."""
     source = tmp_path / "source"
     destination = tmp_path / "destination"
     source.mkdir()
@@ -267,7 +267,7 @@ def test_media_organizer_routes_hidden_file_to_ocultos(tmp_path, monkeypatch):
     summary = organizer.organize(files)
 
     assert summary.dry_run == 1
-    # Hidden files go to destination/Ocultos/{year}/{month_name_cap}/
-    expected = destination / "Ocultos" / "2024" / "Marzo" / ".DS_Store"
+    # Hidden files go to destination/Hidden/{year}/{month_name_cap}/
+    expected = destination / "Hidden" / "2024" / "Marzo" / ".DS_Store"
     assert summary.results[0].destination == expected
     assert summary.results[0].category == MediaCategory.HIDDEN

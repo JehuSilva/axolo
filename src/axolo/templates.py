@@ -113,7 +113,7 @@ def _validate_template(template: str, extra: dict[str, str]) -> None:
     ]
     if unmatched:
         raise ValueError(
-            f"El template contiene placeholders desconocidos: {', '.join(sorted(set(unmatched)))}"
+            f"The template contains unknown placeholders: {', '.join(sorted(set(unmatched)))}"
         )
 
 

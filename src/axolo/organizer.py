@@ -212,16 +212,16 @@ class AxoloOrganizer:
 
     def _get_routing_key(self, metadata: MediaMetadata) -> str:
         if metadata.category == MediaCategory.HIDDEN:
-            return "ocultos"
+            return "hidden"
         if metadata.is_panoramic:
-            return "360-videos" if metadata.media_type == MediaType.VIDEO else "360-fotos"
+            return "360-videos" if metadata.media_type == MediaType.VIDEO else "360-photos"
         if metadata.category == MediaCategory.PHOTOS_VIDEOS:
-            return "videos" if metadata.media_type == MediaType.VIDEO else "fotos"
+            return "videos" if metadata.media_type == MediaType.VIDEO else "photos"
         if metadata.category == MediaCategory.MUSIC:
-            return "musica"
+            return "music"
         if metadata.category == MediaCategory.DOCUMENTS:
-            return "documentos"
-        return "otros"
+            return "documents"
+        return "others"
 
     def _resolve_destination(
         self, metadata: MediaMetadata, planned: Optional[set[Path]] = None
@@ -335,13 +335,13 @@ class AxoloOrganizer:
 
 
 def _apply_captured_at_mtime(path: Path, captured_at: "datetime") -> None:
-    """Set atime/mtime del archivo a `captured_at` para que el sistema de archivos
-    refleje la fecha real de captura (Finder, ls -l, etc.)."""
+    """Set atime/mtime of *path* to `captured_at` so the filesystem reflects the
+    real capture date (Finder, ls -l, etc.)."""
     try:
         ts = captured_at.timestamp()
         os.utime(path, (ts, ts))
     except (OSError, OverflowError, ValueError) as exc:
-        logger.debug("No se pudo ajustar mtime de %s a %s: %s", path, captured_at, exc)
+        logger.debug("Could not set mtime of %s to %s: %s", path, captured_at, exc)
 
 
 def _safe_move(source: Path, destination: Path) -> None:

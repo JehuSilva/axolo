@@ -184,12 +184,12 @@ def _make_jpg(path: Path) -> Path:
 def test_undo_list_no_runs(runner, journal_env):
     result = runner.invoke(app, ["undo", "--list"])
     assert result.exit_code == 0
-    assert "No hay" in result.output or "runs" in result.output.lower() or result.output.strip()
+    assert "No runs" in result.output or "runs" in result.output.lower() or result.output.strip()
 
 
 def test_undo_no_run_id_without_runs(runner, journal_env):
     result = runner.invoke(app, ["undo"])
-    assert result.exit_code != 0 or "No hay" in result.output or "No se encontró" in result.output
+    assert result.exit_code != 0 or "No runs" in result.output or "not found" in result.output.lower()
 
 
 def test_undo_dry_run_move(runner, journal_env, tmp_path):

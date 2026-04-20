@@ -19,58 +19,64 @@ logger = logging.getLogger(__name__)
 # These are the valid names for entries in the config.yaml  `profiles:` list.
 
 ROUTING_KEYS = frozenset({
-    "fotos",       # images → destination/Fotos/
+    "photos",      # images → destination/Photos/
     "videos",      # videos → destination/Videos/
-    "360-fotos",   # panoramic images
+    "360-photos",  # panoramic images
     "360-videos",  # panoramic videos
-    "musica",      # audio files
-    "documentos",  # documents
-    "ocultos",     # hidden files (name starts with '.')
-    "otros",       # everything else
+    "music",       # audio files
+    "documents",   # documents
+    "hidden",      # hidden files (name starts with '.')
+    "others",      # everything else
 })
 
 # Accepted aliases → canonical routing key (for YAML authoring convenience)
 _ROUTING_KEY_ALIASES: Dict[str, str] = {
-    "music":  "musica",
-    "docs":   "documentos",
-    "other":  "otros",
-    "fotos":  "fotos",
-    "videos": "videos",
+    "music":     "music",
+    "docs":      "documents",
+    "other":     "others",
+    "photos":    "photos",
+    "videos":    "videos",
+    "fotos":     "photos",
+    "musica":    "music",
+    "documentos": "documents",
+    "ocultos":   "hidden",
+    "otros":     "others",
+    "360-fotos": "360-photos",
 }
 
 # ── Subfolder structure per routing key ───────────────────────────────────────
 # Defines the path segments appended to the category root before the template.
-# E.g., "fotos" → category_root / "Fotos" / <template_result>
+# E.g., "photos" → category_root / "Photos" / <template_result>
 
 ROUTING_SUBFOLDERS: Dict[str, tuple[str, ...]] = {
-    "fotos":      ("Fotos",),
+    "photos":     ("Photos",),
     "videos":     ("Videos",),
-    "360-fotos":  ("360", "Fotos"),
+    "360-photos": ("360", "Photos"),
     "360-videos": ("360", "Videos"),
-    "musica":     (),
-    "documentos": (),
-    "ocultos":    (),
-    "otros":      (),
+    "music":      (),
+    "documents":  (),
+    "hidden":     (),
+    "others":     (),
 }
 
 # ── Default folder templates per routing key ──────────────────────────────────
 
 DEFAULT_ROUTING: Dict[str, str] = {
-    "fotos":      "default",           # {year}/{month_name_cap}
-    "videos":     "default",           # {year}/{month_name_cap}
-    "360-fotos":  "default",           # {year}/{month_name_cap}
-    "360-videos": "default",           # {year}/{month_name_cap}
-    "musica":     "music_genre_artist", # {music_genre}/{music_artist}
-    "documentos": "year_month_cap",    # {year}/{month_name_cap}
-    "ocultos":    "year_month_cap",    # {year}/{month_name_cap}
-    "otros":      "year_month_cap",   # {year}/{month_name}
+    "photos":     "default",            # {year}/{month_name_cap}
+    "videos":     "default",            # {year}/{month_name_cap}
+    "360-photos": "default",            # {year}/{month_name_cap}
+    "360-videos": "default",            # {year}/{month_name_cap}
+    "music":      "music_genre_artist", # {music_genre}/{music_artist}
+    "documents":  "year_month_cap",     # {year}/{month_name_cap}
+    "hidden":     "year_month_cap",     # {year}/{month_name_cap}
+    "others":     "year_month_cap",     # {year}/{month_name}
 }
 
 # ── Default filename-renaming templates per routing key ───────────────────────
 # When present, the file is renamed using this template. None = keep original.
 
 DEFAULT_ROUTING_FILENAME_TEMPLATES: Dict[str, str] = {
-    "musica": "{music_artist} - {music_title}",
+    "music": "{music_artist} - {music_title}",
 }
 
 
@@ -84,63 +90,63 @@ class TemplateProfile(BaseModel):
 
 
 BUILTIN_PROFILES: Dict[str, TemplateProfile] = {
-    "fotos-cronologico": TemplateProfile(
-        name="fotos-cronologico",
+    "photos-chronological": TemplateProfile(
+        name="photos-chronological",
         template="{year}/{month_name_cap}/{month_name_cap} {day}",
-        description="Fotos y videos por año, mes y día. Ej: 2026/Abril/Abril 15/foto.jpg",
+        description="Photos and videos by year, month, and day. E.g.: 2026/April/April 15/photo.jpg",
     ),
-    "fotos-compacto": TemplateProfile(
-        name="fotos-compacto",
+    "photos-compact": TemplateProfile(
+        name="photos-compact",
         template="{year}/{month:02d}/{day:02d}",
-        description="Carpetas numéricas. Ej: 2026/04/15/foto.jpg",
+        description="Numeric folders. E.g.: 2026/04/15/photo.jpg",
     ),
-    "fotos-por-camara": TemplateProfile(
-        name="fotos-por-camara",
+    "photos-by-camera": TemplateProfile(
+        name="photos-by-camera",
         template="{camera_make}/{camera_model}/{year}/{month:02d}",
-        description="Agrupado por cámara. Ej: canon/eos-r5/2026/04/foto.jpg",
+        description="Grouped by camera. E.g.: canon/eos-r5/2026/04/photo.jpg",
     ),
-    "musica": TemplateProfile(
-        name="musica",
+    "music": TemplateProfile(
+        name="music",
         template="{music_genre}/{music_artist}",
         filename_template="{music_artist} - {music_title}",
-        description="Música por género y artista; renombra a Artista_Titulo.ext.",
+        description="Music by genre and artist; renames to Artist_Title.ext.",
     ),
-    "musica-con-album": TemplateProfile(
-        name="musica-con-album",
+    "music-with-album": TemplateProfile(
+        name="music-with-album",
         template="{music_genre}/{music_artist}/{music_album}",
         filename_template="{music_artist} - {music_title}",
-        description="Música con álbum incluido. Ej: Musica/rock/beatles/let-it-be/beatles_let-it-be.mp3",
+        description="Music with album included. E.g.: Music/rock/beatles/let-it-be/beatles_let-it-be.mp3",
     ),
-    "musica-por-artista": TemplateProfile(
-        name="musica-por-artista",
+    "music-by-artist": TemplateProfile(
+        name="music-by-artist",
         template="{music_artist}/{music_album}",
         filename_template="{music_artist} - {music_title}",
-        description="Sin género; agrupa por artista y álbum.",
+        description="No genre; groups by artist and album.",
     ),
-    "documentos": TemplateProfile(
-        name="documentos",
+    "documents": TemplateProfile(
+        name="documents",
         template="{year}/{month:02d}",
-        description="Documentos por año y mes. Ej: Documentos/2026/04/contrato.pdf",
+        description="Documents by year and month. E.g.: Documents/2026/04/contract.pdf",
     ),
-    "documentos-por-mes": TemplateProfile(
-        name="documentos-por-mes",
+    "documents-by-month": TemplateProfile(
+        name="documents-by-month",
         template="{year}/{month_name_cap}",
-        description="Documentos con mes en español. Ej: Documentos/2026/Abril/contrato.pdf",
+        description="Documents with month name. E.g.: Documents/2026/Abril/contract.pdf",
     ),
     "year-month": TemplateProfile(
         name="year-month",
         template="{year}/{month:02d}",
-        description="Año y mes numérico.",
+        description="Numeric year and month.",
     ),
     "year-month-name": TemplateProfile(
         name="year-month-name",
         template="{year}/{month_name}",
-        description="Año y nombre de mes (minúsculas).",
+        description="Year and month name (lowercase).",
     ),
-    "eventos": TemplateProfile(
-        name="eventos",
+    "events": TemplateProfile(
+        name="events",
         template="{year}/{month:02d}/{evento}",
-        description="Requiere --extra evento=NombreEvento.",
+        description="Requires --extra evento=EventName.",
     ),
 }
 

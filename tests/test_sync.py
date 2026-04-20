@@ -325,7 +325,7 @@ def test_sync_cli_no_source_files(runner, tmp_path):
         "--no-journal",
     ])
     assert result.exit_code == 0
-    assert "No se encontraron" in result.output
+    assert "No files found" in result.output
 
 
 def test_sync_cli_report_json(runner, tmp_path):

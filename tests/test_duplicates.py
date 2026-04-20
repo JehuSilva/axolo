@@ -193,7 +193,7 @@ def test_min_size_filters_small_files(tmp_path):
 
 
 def test_invalid_algorithm_raises_value_error():
-    with pytest.raises(ValueError, match="Algoritmo de hash no soportado"):
+    with pytest.raises(ValueError, match="Unsupported hash algorithm"):
         DuplicateAnalyzer(algorithm="shaXXX")
 
 
