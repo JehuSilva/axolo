@@ -139,7 +139,8 @@ VIDEO_EXTENSIONS = {
     ".insv",
 }
 
-PANORAMIC_360_EXTENSIONS = {".insp", ".insv"}
+PANORAMIC_360_EXTENSIONS = {".insp", ".insv", ".dng"}
+INSTA360_EXTENSIONS = {".insp", ".insv"}
 
 AUDIO_EXTENSIONS = {
     ".mp3",
@@ -251,9 +252,10 @@ def extract_metadata(path: Path) -> MediaMetadata:
     is_panoramic = suffix in PANORAMIC_360_EXTENSIONS
 
     # Fallback make/model for Insta360 formats when not recoverable from metadata.
-    if is_panoramic and not camera_make:
+    is_insta360 = suffix in INSTA360_EXTENSIONS
+    if is_insta360 and not camera_make:
         camera_make = "Arashi Vision"
-    if is_panoramic and not camera_model:
+    if is_insta360 and not camera_model:
         camera_model = "Insta360 X3"
 
     return MediaMetadata(
