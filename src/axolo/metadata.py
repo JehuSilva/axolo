@@ -117,6 +117,7 @@ IMAGE_EXTENSIONS = {
     ".heif",
     ".raw",
     ".cr2",
+    ".cr3",
     ".nef",
     ".arw",
     ".dng",
